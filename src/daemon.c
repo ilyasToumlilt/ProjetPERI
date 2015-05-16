@@ -141,10 +141,13 @@ int main (int argc, char ** argv){
 					perror("read");
 					exit(EXIT_FAILURE);
 				}
+
+				pthread_mutex_lock(&radio_mutex);
 				if (!radio.write(&data, sizeof(int))){
 					perror("radio write");
 					exit(EXIT_FAILURE);
 				}
+				pthread_mutex_lock(&radio_mutex);
   			}
 		}
 	}
