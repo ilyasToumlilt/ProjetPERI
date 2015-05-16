@@ -3,7 +3,7 @@
 
 RF24 radio(RPI_V2_GPIO_P1_15, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
 uint8_t addresses[][6] = {"motor","meteo"};
-int fdread, fdwrite;
+int fdspeed, fdturn, fdtemp, fdlight;
 pthread_mutex_t radio_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void * logthread(void * args){
@@ -44,20 +44,30 @@ void * logthread(void * args){
 					perror("write (temp)");
 					exit(EXIT_FAILURE);
 				}
+
+				//send to server
+				if(write(fdtemp, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
+					perror("Meteo pipe");
+					exit(EXIT_FAILURE);
+				}
 				break;
+
 			case LIGHT: 
 				if(write(lightfd, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
 					perror("write (light)");
 					exit(EXIT_FAILURE);
 				}
+
+				//send to server
+				if(write(fdlight, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
+					perror("Meteo pipe");
+					exit(EXIT_FAILURE);
+				}
 				break;
 			}
 
-			//send to server
-			if(write(fdwrite,&d,sizeof(MeteoData))!=sizeof(MeteoData)){
-				perror("Meteo pipe");
-				exit(EXIT_FAILURE);
-			}
+
+
 		}else{
 			usleep(1000);
 		}
@@ -76,14 +86,24 @@ int main (int argc, char ** argv){
 	}
 
 	//Open command pipe
-	if((fdread=mkfifo("cmdpipe", O_RDONLY))!=0){
-		perror("mkfifo (cmdpipe)");
+	if((fdspeed=mkfifo("speedpipe", O_RDWR))!=0){
+		perror("mkfifo (speedpipe)");
+		exit(EXIT_FAILURE);
+	}
+
+	if((fdturn=mkfifo("turnpipe", O_RDWR))!=0){
+		perror("mkfifo (turnpipe)");
 		exit(EXIT_FAILURE);
 	}
 
 	//Open meteo pipe
-	if((fdwrite=mkfifo("meteopipe",O_WRONLY))!=0){
-		perror("mkfifo (meteopipe)");
+	if((fdtemp=mkfifo("temppipe",O_RDWR))!=0){
+		perror("mkfifo (temppipe)");
+		exit(EXIT_FAILURE);
+	}
+
+	if((fdlight=mkfifo("lightpipe",O_RDWR))!=0){
+		perror("mkfifo (lightpipe)");
 		exit(EXIT_FAILURE);
 	}
 
