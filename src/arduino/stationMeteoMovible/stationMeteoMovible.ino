@@ -59,6 +59,10 @@ void loop()  {
   // read incoming commands for the car
   if(radio.available(0)){
     radio.read(&motorCmd,sizeof(struct _motorCmd));
+    Serial.print("Motor message : SPEED=");
+    Serial.print(motorCmd.speed);
+    Serial.print("; STEER=");
+    Serial.println(motorCmd.steer);
     //leftSpeed = motorCmd.speed + (motorCmd.steer - 50)
     // command the motors
     analogWrite(leftM, leftSpeed);
@@ -71,12 +75,16 @@ void loop()  {
     voltage = analogRead(tempSensor) * 3.3;
     sensorMsg.type = TEMP;
     sensorMsg.value = (voltage - 0.5) * 100;
+    Serial.print("Sending temperature ");
+    Serial.println(sensorMsg.value);
     radio.write(&sensorMsg,sizeof(struct _sensorMsg));
     timerTemp = millis();
   }
   if(time - timerLight > lightDelay){
     sensorMsg.type = LIGHT;
     sensorMsg.value = analogRead(lightSensor);
+    Serial.print("Sending light ");
+    Serial.println(sensorMsg.value);
     radio.write(&sensorMsg,sizeof(struct _sensorMsg));
     timerTemp = millis();
   }
