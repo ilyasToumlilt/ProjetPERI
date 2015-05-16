@@ -78,7 +78,10 @@ void * logthread(void * args){
 
 int main (int argc, char ** argv){
 	pthread_t tid;
-	
+	fd_set active_fd;
+	int i;
+	int data;
+
 	//Check arguments
 	if(argc!=3){
 		fprintf(stderr,"Usage : %s <templogfile> <lightlogfile>\n",argv[0]);
@@ -107,6 +110,12 @@ int main (int argc, char ** argv){
 		exit(EXIT_FAILURE);
 	}
 
+	//FD set
+	FD_ZERO(&active_fd);
+	FD_SET(fdspeed, &active_fd);
+	FD_SET(fdturn, &active_fd);
+
+
 	//Radio initialization
 	radio.begin();
 	radio.openWritingPipe(addresses[0]);
@@ -120,7 +129,25 @@ int main (int argc, char ** argv){
 
 	//Main loop
 	while(1){
+	
+		if (select(FD_SETSIZE, &active_fd, NULL, NULL, NULL) < 0){
+			perror ("select");
+			exit (EXIT_FAILURE);
+	        }
 
+		for (i = 0; i < FD_SETSIZE; i++){
+        		if (FD_ISSET (i, &active_fd)){
+				if (read(i, &data, sizeof(int)) < 0){
+					perror("read");
+					exit(EXIT_FAILURE);
+				}
+				if (!radio.write(&data, sizeof(int))){
+					perror("radio write");
+					exit(EXIT_FAILURE);
+				}
+  			}
+		}
 	}
+
 	return EXIT_SUCCESS;
 }
