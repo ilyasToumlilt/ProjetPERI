@@ -35,8 +35,7 @@
   <body data-twttr-rendered="true" cz-shortcut-listen="true" id="top" data-spy="scroll" data-target=".subnav" data-offset="80">
 
 
-  <!-- Navbar
-    ================================================== -->
+  <!-- Navbar ================================================== -->
  <div class="navbar navbar-fixed-top">
    <div class="navbar-inner">
      <div class="container">

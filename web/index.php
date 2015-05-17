@@ -41,12 +41,12 @@ function get_bootstrap_scripts() {
 	 <link href="lib/extendedBootstrap/css/extend.css" rel="stylesheet" />
 	 <!-- extended 2.0 -->
 	 <!-- end -->
-	 <link href="./indexDesign.css" rel="stylesheet" />
+	 <link href="./css/indexDesign.css" rel="stylesheet" />
 	 <script src='./lib/jquery/jquery-1.11.1.min.js'></script>
-	 <script src='./ajax.js'></script>
-	 <script src='./charts-flot.js'></script>
-	 <script src='./speedUp.js'></script>
-	 <script src='./turn.js'></script>
+	 <script src='./ajax/ajax.js'></script>
+	 <script src='./js/charts-flot.js'></script>
+	 <script src='./js/speedUp.js'></script>
+	 <script src='./js/turn.js'></script>
    </head>
 
    <body data-twttr-rendered="true" cz-shortcut-listen="true" id="top" data-spy="scroll" data-target=".subnav" data-offset="80">
@@ -62,7 +62,7 @@ function get_bootstrap_scripts() {
 	       <table>
 		  <tr>
 		     <td style="cursor: pointer" onclick="onClickDownHandler()"><span class="glyphicon glyphicon-menu-left" aria-hidden="true" ></span></td>
-		     <td><br/><div class="progress" style='width: 200px' >
+		     <td><br/><div class="progress" style='width: 300px' >
 			   <div id="speedUpProgressBar" class="wk-progress-bar progress-bar" role='progressbar' aria-valuenow='50' aria-valuemin='0' aria-valuemax='100' style='width: 50%'>50%</div>
 			</div>
 		     </td>
@@ -75,7 +75,7 @@ function get_bootstrap_scripts() {
 	       <table>
 		  <tr> 
 		     <td style="cursor: pointer" onclick="onClickLeftHandler()"><span class="glyphicon glyphicon-menu-left" aria-hidden="true"></span></td>
-		     <td><br/><div class="progress" style='width: 200px' >
+		     <td><br/><div class="progress" style='width: 300px' >
 			   <div id="turnProgressBar" class="wk-progress-bar progress-bar" role='progressbar' aria-valuenow='50' aria-valuemin='0' aria-valuemax='100' style='width: 50%'>50%</div>
 			</div>
 		     </td>
@@ -107,7 +107,7 @@ function get_bootstrap_scripts() {
 	    <div class="panel-body">
 	       <div class="box">
 		  <div class="box-header">
-		     <h2><i class="fa fa-list-alt"></i><span class="break"></span>Realtime</h2>
+		     <!--<h2><i class="fa fa-list-alt"></i><span class="break"></span>Realtime</h2>-->
 		     <div class="box-icon">
 			<a class="btn-setting" href="charts-flot.html#"><i class="fa fa-wrench"></i></a>
 			<a class="btn-minimize" href="charts-flot.html#"><i class="fa fa-chevron-up"></i></a>
@@ -115,8 +115,33 @@ function get_bootstrap_scripts() {
 		     </div>
 		  </div>
 		  <div class="box-content">
-		     <div style="height: 190px; padding: 0px; position: relative;" id="realtimechart"><canvas class="flot-base" style="direction: ltr; position: absolute; left: 0px; top: 0px; width: 1531px; height: 190px;" width="1531" height="190"></canvas><div class="flot-text" style="position: absolute; top: 0px; left: 0px; bottom: 0px; right: 0px; font-size: smaller; color: rgb(84, 84, 84);"><div class="flot-y-axis flot-y1-axis yAxis y1Axis" style="position: absolute; top: 0px; left: 0px; bottom: 0px; right: 0px; display: block;"><div style="position: absolute; top: 174px; left: 13px; text-align: right;" class="flot-tick-label tickLabel">0</div><div style="position: absolute; top: 131px; left: 6px; text-align: right;" class="flot-tick-label tickLabel">25</div><div style="position: absolute; top: 87px; left: 6px; text-align: right;" class="flot-tick-label tickLabel">50</div><div style="position: absolute; top: 44px; left: 6px; text-align: right;" class="flot-tick-label tickLabel">75</div><div style="position: absolute; top: 0px; left: 0px; text-align: right;" class="flot-tick-label tickLabel">100</div></div></div><canvas class="flot-overlay" style="direction: ltr; position: absolute; left: 0px; top: 0px; width: 1531px; height: 190px;" width="1531" height="190"></canvas></div>
-		     <p>You can update a chart periodically to get a real-time effect by using a timer to insert the new data in the plot and redraw it.</p>
+		     <div style="height: 190px; padding: 0px; position: relative;" id="realtimechart">
+			<canvas class="flot-base" style="direction: ltr; position: absolute; left: 0px; top: 0px; width: 1531px; height: 190px;" width="1531" height="190">
+
+			</canvas>
+			<div class="flot-text" style="position: absolute; top: 0px; left: 0px; bottom: 0px; right: 0px; font-size: smaller; color: rgb(84, 84, 84);">
+			   <div class="flot-y-axis flot-y1-axis yAxis y1Axis" style="position: absolute; top: 0px; left: 0px; bottom: 0px; right: 0px; display: block;">
+			      <div style="position: absolute; top: 174px; left: 13px; text-align: right;" class="flot-tick-label tickLabel">
+				 0
+			      </div>
+			      <div style="position: absolute; top: 131px; left: 6px; text-align: right;" class="flot-tick-label tickLabel">
+				 25
+			      </div>
+			      <div style="position: absolute; top: 87px; left: 6px; text-align: right;" class="flot-tick-label tickLabel">
+				 50
+			      </div>
+			      <div style="position: absolute; top: 44px; left: 6px; text-align: right;" class="flot-tick-label tickLabel">
+				 75
+			      </div>
+			      <div style="position: absolute; top: 0px; left: 0px; text-align: right;" class="flot-tick-label tickLabel">
+				 100
+			      </div>
+			   </div>
+			</div>
+			<canvas class="flot-overlay" style="direction: ltr; position: absolute; left: 0px; top: 0px; width: 1531px; height: 190px;" width="1531" height="190">
+
+			</canvas>
+		     </div>
 		     <p>Time between updates: <input type="text" style="text-align: right; width:5em" value="" id="updateInterval"> milliseconds</p>
 		  </div>
 	       </div>
