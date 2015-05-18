@@ -43,6 +43,7 @@ RF24 radio = RF24(nrfCEpin, nrfCSpin);
 
 void setup()  { 
   Serial.begin(9600);
+  radio.begin();
   radio.openWritingPipe(addresses[0]);
   radio.openReadingPipe(0,addresses[1]);
   time = millis();
