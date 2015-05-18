@@ -1,0 +1,23 @@
+#carControlContainer
+{
+   position: absolute;
+   left: 20px;
+   top: 20px;
+   width: 400px;
+}
+
+#meteoStationContainer
+{
+   position: absolute;
+   left: 440px;
+   top: 20px;
+   width: 400px;
+}
+
+#graphContainer
+{
+   position: absolute;
+   left: 20px;
+   top: 250px;
+   width: 95%;
+}
