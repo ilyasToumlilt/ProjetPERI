@@ -61,12 +61,12 @@ function get_bootstrap_scripts() {
 	    <div id='speedUpContainer'>
 	       <table>
 		  <tr>
-		     <td style="cursor: pointer" onclick="onClickDownHandler()"><span class="glyphicon glyphicon-menu-left" aria-hidden="true" ></span></td>
+		     <td style="cursor: pointer" onclick="onClickDownHandler();"><span class="glyphicon glyphicon-menu-left" aria-hidden="true" ></span></td>
 		     <td><br/><div class="progress" style='width: 300px' >
 			   <div id="speedUpProgressBar" class="wk-progress-bar progress-bar" role='progressbar' aria-valuenow='50' aria-valuemin='0' aria-valuemax='100' style='width: 50%'>50%</div>
 			</div>
 		     </td>
-		     <td style="cursor: pointer" onclick="onClickUpHandler()"><span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span></td>
+		     <td style="cursor: pointer" onclick="onClickUpHandler();"><span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span></td>
 		  </tr>
 	       </table>
 	    </div>
@@ -146,6 +146,10 @@ function get_bootstrap_scripts() {
 		  </div>
 	       </div>
 	    </div>
+	 </div>
+	 
+	 <div id="debugContainer">
+	    
 	 </div>
 
       </div>
