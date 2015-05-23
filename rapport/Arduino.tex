@@ -1,0 +1,204 @@
+\section{Explications}
+
+Le rôle de l'Arduino est d'envoyer des données au serveur pour qu'il les affiche sur la
+page web, et de recevoir les données entrées sur la page web par l'utilisateur pour contrôler
+la voiture. Elle récupère ces données grâce à des capteurs (capteurs de luminosité et
+de température). La communication se fait par nRF24.
+
+\section{Fichiers à inclure}
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        #include <SPI.h>
+	#include <RF24_config.h>
+	#include <RF24.h>
+	#include <nRF24L01.h>
+	#include <printf.h>
+\end{lstlisting}
+\end{DDbox}
+
+\section{Variables}
+
+Nous avons besoin de configurer 5 pins :
+\begin{itemize}
+	\item Moteur droit
+	\item Moteur gauche
+	\item Démarrage de la voiture
+	\item Capteur de luminosité
+	\item Capteur de température
+\end{itemize}
+\bigbreak
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	// Pin configuration
+	int leftM = 6; // left motor
+	int rightM = 7; // right motor
+	int lightSensor = 0;
+	int tempSensor = 1;
+
+\end{lstlisting}
+\end{DDbox}
+
+Ensuite, nous devons définir les variables qui contiendront les commandes que reçoit
+l'Arduino :
+\begin{itemize}
+	\item Vitesse du moteur droit
+	\item Vitesse du moteur gauche
+\end{itemize}
+
+Ainsi qu'une structure dédiée à la réception du message des commandes
+de la voiture. Ce qui donne le code suivant :
+
+\bigbreak
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	// Motor command variables
+	int leftSpeed;
+	int rightSpeed;
+	struct _motorCmd {
+		int speed;
+		int steer;
+	} motorCmd;
+
+\end{lstlisting}
+\end{DDbox}
+
+De la même manière, on définit une structure dédiée à l'envoi des messages
+de l'Arduino au serveur.
+
+\bigbreak
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	// Sensors handling
+	enum {TEMP, LIGHT};
+	struct _sensorMsg {
+		uint16_t type;
+		float value;
+	} sensorMsg;
+
+\end{lstlisting}
+\end{DDbox}
+
+Des timers seront nécessaires car nous envoyons des données en continue, et nous devons
+savoir quand il faut émettre (par exemple, toutes les secondes, ou toutes les millisecondes)
+pour ne pas surcharger le serveur. Ici, nous allons éméttre la température toutes les secondes
+et la luminosité toutes les millisecondes (tempDelay et lightDelay). 
+Deux autres variables sont nécessaires pour tester si le délai de la température ou de la
+luminosité se sont écoulés (timerTemp et timerLight).
+
+\bigbreak
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	float voltage;
+	// Timers
+	int tempDelay = 1000;
+	int lightDelay = 100;
+	int timerTemp, timerLight;
+	int time;
+
+\end{lstlisting}
+\end{DDbox}
+
+On configure la nRF :
+
+\bigbreak
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	// nrf configuration
+	int nrfCEpin = 9;
+	int nrfCSpin = 10;
+	uint8_t addresses[][6] = {"meteo", "motor"};
+	RF24 radio = RF24(nrfCEpin, nrfCSpin);
+
+\end{lstlisting}
+\end{DDbox}
+
+
+\section{Fonction setup()}
+
+La fonction setup() va initialiser les pipes de la nRF en lecture ou en écriture, 
+les timers et la vitesse initiale des moteurs droit et gauche (0). 
+
+\bigbreak
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	void setup() {
+		Serial.begin(9600);
+		radio.begin();
+		radio.openWritingPipe(addresses[0]);
+		radio.openReadingPipe(0,addresses[1]);
+		time = millis();
+		timerTemp = time;
+		timerLight = time;
+		leftSpeed = 0;
+		rightSpeed = 0;
+	}
+}
+\end{lstlisting}
+\end{DDbox}
+
+
+
+\section{Fonction loop()}
+
+La fonction loop va lire les données reçue sur la nRF s'il y en a (radio.available()), afficher 
+les valeurs de vitesse et de virage reçues (Serial.print()) puis écrire dans les pins associés 
+les valeurs de vitesse des moteurs droit et gauche (analogWrite()).
+
+\bigbreak
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	void loop() {
+	// read incoming commands for the car
+	if(radio.available(0)){
+		radio.read(&motorCmd,sizeof(struct _motorCmd));
+		Serial.print("Motor message : SPEED=");
+		Serial.print(motorCmd.speed);
+		Serial.print("; STEER=");
+		Serial.println(motorCmd.steer);
+		//leftSpeed = motorCmd.speed + (motorCmd.steer - 50)
+		// command the motors
+		analogWrite(leftM, leftSpeed);
+		analogWrite(rightM, rightSpeed);
+	}
+
+\end{lstlisting}
+\end{DDbox}
+
+Ensuite, l'Arduino va lire les valeurs sur les pins associés à la température ou à la
+luminosité (analogRead), construire le message (remplissage des champs type et value
+de la structure sensorMsg) et envoyer le message sur la nRF (radio.write()).
+
+Pour cela, il faut enregistrer le temps qui s'est écoulé depuis le lancement du programme
+et tester si on peut émettre, c'est-à-dire si le délai pour la température ou pour la
+luminosité s'est écoulé. Par exemple pour la température, on enregistre le temps avant 
+d'émettre (variable time), et après avoir émis (timerTemps). 
+Si la différence entre time et timerTemp est supérieure au délai tempDelay, ça signifie qu'on
+peut émettre.\\
+
+On procède de la même manière pour l'envoi de la luminosité.
+
+\bigbreak
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	// send sensors' data if necessary
+	time = millis();
+	if(time - timerTemp > tempDelay){
+		voltage = analogRead(tempSensor) * 3.3;
+		sensorMsg.type = TEMP;
+		sensorMsg.value = 1/(log(voltage/10000)/3975+1/298.15)-273.15;
+		Serial.print("Sending temperature ");
+		Serial.println(sensorMsg.value);
+		radio.write(&sensorMsg,sizeof(struct _sensorMsg));
+		timerTemp = millis();
+	}
+	if(time - timerLight > lightDelay){
+		sensorMsg.type = LIGHT;
+		sensorMsg.value = analogRead(lightSensor);
+		Serial.print("Sending light ");
+		Serial.println(sensorMsg.value);
+		radio.write(&sensorMsg,sizeof(struct _sensorMsg));
+		timerTemp = millis();
+	}
+\end{lstlisting}
+\end{DDbox}

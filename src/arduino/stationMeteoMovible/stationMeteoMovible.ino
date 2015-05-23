@@ -17,8 +17,8 @@ int tempSensor = 1;
 int leftSpeed;
 int rightSpeed;
 struct _motorCmd {
-  int speed;
-  int steer;
+  uint16_t speed;
+  uint16_t steer;
 } motorCmd;
 
 // Sensors handling
@@ -66,19 +66,25 @@ void loop()  {
     Serial.println(motorCmd.steer);
     //leftSpeed = motorCmd.speed + (motorCmd.steer - 50)
     // command the motors
-    analogWrite(leftM, leftSpeed);
-    analogWrite(rightM, rightSpeed);
+    //analogWrite(leftM, leftSpeed);
+    //analogWrite(rightM, rightSpeed);
   }
   
   // send sensors' data if necessary
   time = millis();
+  //Serial.print("Time - temp = ");
+  //Serial.println(time - timerTemp);
+  //Serial.print("Time - light = ");
+  //Serial.println(time - timerLight);
   if(time - timerTemp > tempDelay){
-    voltage = analogRead(tempSensor) * 3.3;
+    voltage = analogRead(tempSensor);
+    voltage = (float)(1023-voltage)*10000/voltage;
     sensorMsg.type = TEMP;
-    sensorMsg.value = (voltage - 0.5) * 100;
+    sensorMsg.value = 1/(log(voltage/10000)/3975+1/298.15)-273.15;
     Serial.print("Sending temperature ");
     Serial.println(sensorMsg.value);
     radio.write(&sensorMsg,sizeof(struct _sensorMsg));
+    //Serial.println("Light sent");
     timerTemp = millis();
   }
   if(time - timerLight > lightDelay){
@@ -87,6 +93,6 @@ void loop()  {
     Serial.print("Sending light ");
     Serial.println(sensorMsg.value);
     radio.write(&sensorMsg,sizeof(struct _sensorMsg));
-    timerTemp = millis();
+    timerLight = millis();
   }
 }
