@@ -4,8 +4,68 @@
 RF24 radio(RPI_V2_GPIO_P1_15, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
 uint8_t addresses[][6] = {"motor","meteo"};
 int fdspeed, fdturn, fdtemp, fdlight;
+int templog, lightlog;
 pthread_mutex_t radio_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+
+/*Close all files when SIGINT*/
+void handler(int sig) {
+	//Close all log files
+	if (close(templog) == -1) {
+		perror("close templog");
+		exit(EXIT_FAILURE);
+	}
+
+	if (close(lightlog) == -1) {
+		perror("close lightlog");
+		exit(EXIT_FAILURE);
+	}
+	
+	//Close all fifo descriptors
+	if (close(fdspeed) == -1) {
+		perror("close fdspeed");
+		exit(EXIT_FAILURE);
+	}
+
+	if (close(fdturn) == -1) {
+		perror("close fdturn");
+		exit(EXIT_FAILURE);
+	}
+	if (close(fdtemp) == -1) {
+		perror("close fdtemp");
+		exit(EXIT_FAILURE);
+	}
+	if (close(fdlight) == -1) {
+		perror("close fdlight");
+		exit(EXIT_FAILURE);
+	}
+
+	//Unlink fifo
+	if (unlink("/tmp/lightpipe") == -1) {
+		perror("close lightpipe");
+		exit(EXIT_FAILURE);
+	}
+
+	if (unlink("/tmp/speedpipe") == -1) {
+		perror("close speedpipe");
+		exit(EXIT_FAILURE);
+	}
+
+	if (unlink("/tmp/turnpipe") == -1) {
+		perror("close turnpipe");
+		exit(EXIT_FAILURE);
+	}
+
+	if (unlink("/tmp/temppipe") == -1) {
+		perror("close temppipe");
+		exit(EXIT_FAILURE);
+	}
+
+	printf("All files closed");
+	exit(EXIT_SUCCESS);
+}
+
+/*Returns random number between min and max*/
 int random(int min, int max) {
 	int low_num=0, hi_num=0;
 
@@ -29,23 +89,23 @@ int random(int min, int max) {
 
 void * logthread(void * args){
 	char ** filenames = (char **) args;
-	int tempfd, lightfd;
 	MeteoData d;
 	Request req;
 
 	//Open temperature logfile
-	if((tempfd=open(filenames[0], O_WRONLY | O_CREAT | O_APPEND))==-1){
+	if((templog=open(filenames[0], O_WRONLY | O_CREAT | O_APPEND))==-1){
 		perror("open (templogfile)");
 		exit(EXIT_FAILURE);
 	}
 
 	//Open light logfile
-	if((lightfd=open(filenames[1], O_WRONLY | O_CREAT | O_APPEND))==-1){
+	if((lightlog=open(filenames[1], O_WRONLY | O_CREAT | O_APPEND))==-1){
 		perror("open (lightlogfile)");
 		exit(EXIT_FAILURE);
 	}
 
 	while(1){
+		//if there are bytes to be read
 		if(radio.available()){
 			//Get data from arduino
 			pthread_mutex_lock(&radio_mutex);
@@ -64,12 +124,13 @@ void * logthread(void * args){
 			//Write in the right file
 			switch(req.type){
 			case TEMP:
-				if(write(tempfd, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
+				//Temperature data
+				if(write(templog, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
 					perror("write (temp)");
 					exit(EXIT_FAILURE);
 				}
 
-				//send to server
+				//Send to server
 				if(write(fdtemp, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
 					perror("Meteo pipe");
 					exit(EXIT_FAILURE);
@@ -77,12 +138,13 @@ void * logthread(void * args){
 				break;
 
 			case LIGHT: 
-				if(write(lightfd, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
+				//Light data
+				if(write(lightlog, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
 					perror("write (light)");
 					exit(EXIT_FAILURE);
 				}
 
-				//send to server
+				//Send to server
 				if(write(fdlight, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
 					perror("Meteo pipe");
 					exit(EXIT_FAILURE);
@@ -93,14 +155,27 @@ void * logthread(void * args){
 
 
 		}else{
-			int r = random(0, 100);
+			int l = random(0, 100);
 
-			if (write(fdlight, &r, sizeof(int)) == -1) {
+			/*Writing light*/
+			if (write(fdlight, &l, sizeof(int)) == -1) {
 				perror("write lightpipe");
 				exit(EXIT_FAILURE);
 			}
 
-			printf("Sending lightpipe : %d\n", r);
+			printf("Sending lightpipe : %d\n", l);
+
+
+			int t = random(0, 100);
+
+			/*Writing temperature*/
+			if (write(fdtemp, &t, sizeof(int)) == -1) {
+				perror("write temppipe");
+				exit(EXIT_FAILURE);
+			}
+
+			printf("Sending temppipe : %d\n", t);
+
 			usleep(100000);
 		}
 	}
@@ -114,6 +189,12 @@ int main (int argc, char ** argv){
 	int data;
 	int fdmax;
 	int16_t speed = 50, turn = 50;
+
+	/*Sigaction to catch SIGINT*/
+	struct sigaction sigact;
+	sigact.sa_handler = handler;
+	sigaction(SIGINT, &sigact, NULL);
+
 
 	//Check arguments
 	if(argc!=3){
@@ -189,11 +270,13 @@ int main (int argc, char ** argv){
 		FD_ZERO(&active_fd);
 		FD_SET(fdspeed, &active_fd);
 		FD_SET(fdturn, &active_fd);
+
 		if (select(fdmax, &active_fd, NULL, NULL, NULL) < 0){
 			perror ("select");
 			exit (EXIT_FAILURE);
 	        }
 
+		//If there are data in fdturn or fdspeed
 		if (FD_ISSET (fdturn, &active_fd)){
 			if (read(fdturn, &data, sizeof(int16_t)) < 0){
 				perror("read");
@@ -208,6 +291,7 @@ int main (int argc, char ** argv){
 			}
 		}
 	
+		//Sends the speed and turn data
 		pthread_mutex_lock(&radio_mutex);
 		if (!radio.write(&speed, sizeof(int16_t))){
 			perror("radio write");

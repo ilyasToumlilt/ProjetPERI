@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <sys/select.h>
 #include <time.h>
-
+#include <signal.h>
 
 typedef struct _meteodata {
 	struct timeval time;
