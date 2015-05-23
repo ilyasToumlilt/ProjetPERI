@@ -6,6 +6,27 @@ uint8_t addresses[][6] = {"motor","meteo"};
 int fdspeed, fdturn, fdtemp, fdlight;
 pthread_mutex_t radio_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+int random(int min, int max) {
+	int low_num=0, hi_num=0;
+
+	if(min < max) {
+		 low_num = min;
+		 hi_num = max +1;
+    	}
+	else {
+		 low_num = max + 1;
+		 hi_num = min;
+   	 }
+
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+
+	 /* using nano-seconds instead of seconds */
+	 srand((time_t)ts.tv_nsec);
+
+	 return (rand()%(hi_num-low_num)) + low_num;
+}
+
 void * logthread(void * args){
 	char ** filenames = (char **) args;
 	int tempfd, lightfd;
@@ -69,6 +90,14 @@ void * logthread(void * args){
 
 
 		}else{
+			int r = random(0, 100);
+
+			if (write(fdlight, &r, sizeof(int)) == -1) {
+				perror("write lightpipe");
+				exit(EXIT_FAILURE);
+			}
+
+			printf("Sending lightpipe : %d\n", r);
 			usleep(100000);
 		}
 	}
@@ -91,23 +120,23 @@ int main (int argc, char ** argv){
 	}
 
 	//Open command pipe
-	if((fdspeed=mkfifo("speedpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
+	if((fdspeed=mkfifo("/tmp/speedpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
 		perror("mkfifo (speedpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdturn=mkfifo("turnpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
+	if((fdturn=mkfifo("/tmp/turnpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
 		perror("mkfifo (turnpipe)");
 		exit(EXIT_FAILURE);
 	}
 
 	//Open meteo pipe
-	if((fdtemp=mkfifo("temppipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
+	if((fdtemp=mkfifo("/tmp/temppipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
 		perror("mkfifo (temppipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdlight=mkfifo("lightpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
+	if((fdlight=mkfifo("/tmp/lightpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
 		perror("mkfifo (lightpipe)");
 		exit(EXIT_FAILURE);
 	}

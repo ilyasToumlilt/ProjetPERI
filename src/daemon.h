@@ -10,6 +10,8 @@
 #include <RF24/RF24.h>
 #include <unistd.h>
 #include <sys/select.h>
+#include <time.h>
+
 
 typedef struct _meteodata {
 	struct timeval time;
