@@ -19,6 +19,7 @@ $(document).ready(function() {
 
    var data = [], totalPoints = 300;
    var res = [];
+   var brightLock = 0;
 
    function initChart() {
       for(var i = 0; i < totalPoints; i++){
@@ -58,6 +59,7 @@ $(document).ready(function() {
 	    }
 	 }
       }
+      brightLock = 0;
    }
 
    // setup control widget
@@ -89,13 +91,15 @@ $(document).ready(function() {
       };
       var plot = $.plot($("#realtimechart"), [initChart()], options);
       function update() {
-	 ajax_brightness("./ajax/brightnessAjax.php", 0, dataReceiver, 0);
-	 //document.getElementById("debugContainer").innerHTML = "-" + res.toString();
+	 if( !brightLock ){
+	    brightLock = 1;
+	    ajax_brightness("./ajax/brightnessAjax.php", 0, dataReceiver, 0);
+	    //document.getElementById("debugContainer").innerHTML = "-" + res.toString();
 	 
-	 plot.setData([res]);
-	 // since the axes don't change, we don't need to call plot.setupGrid()
-	 plot.draw();
-	 
+	    plot.setData([res]);
+	    // since the axes don't change, we don't need to call plot.setupGrid()
+	    plot.draw();
+	 }
 	 setTimeout(update, updateInterval);
       }
 

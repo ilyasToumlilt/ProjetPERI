@@ -22,10 +22,8 @@ if( $arg > 100 || $arg < 0 ){
 }
 
 if(!file_exists(SPEED_FIFO)){
-   if(!posix_mkfifo(SPEED_FIFO, 0766)){
-      $ret = "ERROR 012: Cannot open pipe";
-      goto end_label;
-   }
+   $ret = "ERROR 012: Daemon isn't lunched yet";
+   goto end_label;
 }
 
 $pipe = fopen(SPEED_FIFO, "w");
@@ -34,9 +32,7 @@ if( !$pipe ){
    goto end_label;
 }
 
-file_put_contents("/tmp/logloglog", "BONJOUR\n", FILE_APPEND);
 fwrite($pipe, chr($arg), 2);
-file_put_contents("/tmp/logloglog", "$arg BYE\n", FILE_APPEND);
 
 fclose($pipe);
 
