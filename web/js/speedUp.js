@@ -28,16 +28,23 @@ function speedUpAjaxResponseHandler(xhr, arg)
 
 function onClickDownHandler()
 {
-   if (speedVal > 0) {
+    if (speedVal > 0) {
+	/*
       var params = "arg=" + (speedVal - 5);
-      ajax_car("./ajax/speedUpAjax.php", params, speedUpAjaxResponseHandler, 0);
-   }
+      ajax_car("./ajax/speedUpAjax.php", params, speedUpAjaxResponseHandler, 0);*/
+	speedVal = speedVal + 5;
+	updateSpeedUpProgressBar();
+    }
 }
 
 function onClickUpHandler()
 {
-   if (speedVal < 100) {
+    if (speedVal < 100) {
+	/*
       var params = "arg=" + (speedVal + 5);
       ajax_car("./ajax/speedUpAjax.php", params, speedUpAjaxResponseHandler, 0);
+	*/
+	speedVal = speedVal - 5;
+	       updateSpeedUpProgressBar();
    }
 }

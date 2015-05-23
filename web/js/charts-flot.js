@@ -90,7 +90,8 @@ $(document).ready(function() {
 	 },
       };
       var plot = $.plot($("#realtimechart"), [initChart()], options);
-      function update() {
+       function update() {
+	   /*
 	 if( !brightLock ){
 	    brightLock = 1;
 	    ajax_brightness("./ajax/brightnessAjax.php", 0, dataReceiver, 0);
@@ -99,7 +100,11 @@ $(document).ready(function() {
 	    plot.setData([res]);
 	    // since the axes don't change, we don't need to call plot.setupGrid()
 	    plot.draw();
-	 }
+	    } */
+	   updateChart(50);
+	   plot.setData([res]);
+	   plot.draw();
+	   
 	 setTimeout(update, updateInterval);
       }
 
