@@ -34,13 +34,13 @@ void * logthread(void * args){
 	Request req;
 
 	//Open temperature logfile
-	if((tempfd=open(filenames[0], 0_WRONLY | O_CREAT | O_APPEND))!=0){
+	if((tempfd=open(filenames[0], O_WRONLY | O_CREAT | O_APPEND))==-1){
 		perror("open (templogfile)");
 		exit(EXIT_FAILURE);
 	}
 
 	//Open light logfile
-	if((lightfd=open(filenames[1],0_WRONLY | O_CREAT | O_APPEND))!=0){
+	if((lightfd=open(filenames[1], O_WRONLY | O_CREAT | O_APPEND))==-1){
 		perror("open (lightlogfile)");
 		exit(EXIT_FAILURE);
 	}
@@ -121,7 +121,6 @@ void * logthread(void * args){
 int main (int argc, char ** argv){
 	pthread_t tid;
 	fd_set active_fd;
-	int i;
 	int data;
 	int fdmax;
 	int16_t speed = 50, turn = 50;
@@ -133,24 +132,46 @@ int main (int argc, char ** argv){
 	}
 
 	//Open command pipe
-	if((fdspeed=mkfifo("/tmp/speedpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
+	if(mkfifo("/tmp/speedpipe", 0766)==-1){
 		perror("mkfifo (speedpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdturn=mkfifo("/tmp/turnpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
+	if((fdspeed=open("/tmp/speedpipe", O_RDWR | O_TRUNC))==-1){
+		perror("open (speedpipe)");
+		exit(EXIT_FAILURE);
+	}
+
+	if(mkfifo("/tmp/turnpipe", 0766)==-1){
 		perror("mkfifo (turnpipe)");
 		exit(EXIT_FAILURE);
 	}
 
+	if((fdturn=open("/tmp/turnpipe", O_RDWR | O_TRUNC))==-1){
+		perror("open (turnpipe)");
+		exit(EXIT_FAILURE);
+	}
+
+
 	//Open meteo pipe
-	if((fdtemp=mkfifo("/tmp/temppipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
+
+	if(mkfifo("/tmp/temppipe", 0766)==-1){
 		perror("mkfifo (temppipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdlight=mkfifo("/tmp/lightpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
+	if((fdtemp=open("/tmp/temppipe", O_RDWR | O_TRUNC))==-1){
+		perror("open (temppipe)");
+		exit(EXIT_FAILURE);
+	}
+
+	if(mkfifo("/tmp/lightpipe", 0766)==-1){
 		perror("mkfifo (lightpipe)");
+		exit(EXIT_FAILURE);
+	}
+
+	if((fdlight=open("/tmp/lightpipe", O_RDWR | O_TRUNC))==-1){
+		perror("open (lightpipe)");
 		exit(EXIT_FAILURE);
 	}
 
@@ -198,7 +219,7 @@ int main (int argc, char ** argv){
 		}
 	
 		pthread_mutex_lock(&radio_mutex);
-		if (!radio.write(&data, sizeof(int16_t))){
+		if (!radio.write(&speed, sizeof(int16_t))){
 			perror("radio write");
 			exit(EXIT_FAILURE);
 		}
