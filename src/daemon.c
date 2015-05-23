@@ -53,7 +53,10 @@ void * logthread(void * args){
 			radio.read(&req, sizeof(Request));
 			radio.stopListening();
 			pthread_mutex_unlock(&radio_mutex);
-			
+
+			printf("Data received from arduino : %s %f", 
+			       req.type==TEMP ? "TEMP" : "LIGHT", req.data);
+
 			//Fill the fields of MeteoData
 			d.data=req.data;
 			gettimeofday(&(d.time),NULL);
