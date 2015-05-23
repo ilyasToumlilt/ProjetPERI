@@ -186,7 +186,7 @@ On procède de la même manière pour l'envoi de la luminosité.
 	if(time - timerTemp > tempDelay){
 		voltage = analogRead(tempSensor) * 3.3;
 		sensorMsg.type = TEMP;
-		sensorMsg.value = (voltage - 0.5) * 100;
+		sensorMsg.value = 1/(log(voltage/10000)/3975+1/298.15)-273.15;
 		Serial.print("Sending temperature ");
 		Serial.println(sensorMsg.value);
 		radio.write(&sensorMsg,sizeof(struct _sensorMsg));
