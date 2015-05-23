@@ -90,14 +90,27 @@ void * logthread(void * args){
 
 
 		}else{
-			int r = random(0, 100);
+			int l = random(0, 100);
 
-			if (write(fdlight, &r, sizeof(int)) == -1) {
+			/*Writing light*/
+			if (write(fdlight, &l, sizeof(int)) == -1) {
 				perror("write lightpipe");
 				exit(EXIT_FAILURE);
 			}
 
-			printf("Sending lightpipe : %d\n", r);
+			printf("Sending lightpipe : %d\n", l);
+
+
+			int t = random(0, 100);
+
+			/*Writing temperature*/
+			if (write(fdtemp, &t, sizeof(int)) == -1) {
+				perror("write temppipe");
+				exit(EXIT_FAILURE);
+			}
+
+			printf("Sending temppipe : %d\n", t);
+
 			usleep(100000);
 		}
 	}
