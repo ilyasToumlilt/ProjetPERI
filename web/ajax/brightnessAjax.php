@@ -8,10 +8,8 @@ $ret = "";
  * @todo je ne dois pas créer le pipe, mais tant qu'il n'existe pas la section doit être inactive
  */
 if(!file_exists(LIGHT_FIFO)){
-   if(!posix_mkfifo(LIGHT_FIFO, 0766)){
-      $ret = "ERROR 020: Cannot make FIFO";
-      goto end_label;
-   }
+   $ret = "ERROR 020: Daemon isn't lunched yet";
+   goto end_label;
 }
 
 $pipe = fopen(LIGHT_FIFO, "r");

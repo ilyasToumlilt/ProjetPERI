@@ -22,10 +22,8 @@ if( $arg > 100 || $arg < 0 ){
 }
 
 if(!file_exists(SPEED_FIFO)){
-   if(!posix_mkfifo(SPEED_FIFO, 0766)){
-      $ret = "ERROR 012: Cannot open pipe";
-      goto end_label;
-   }
+   $ret = "ERROR 012: Daemon isn't lunched yet";
+   goto end_label;
 }
 
 $pipe = fopen(SPEED_FIFO, "w");
