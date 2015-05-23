@@ -113,9 +113,12 @@ void * logthread(void * args){
 			radio.read(&req, sizeof(Request));
 			radio.stopListening();
 			pthread_mutex_unlock(&radio_mutex);
-			
+
+			printf("Data received from arduino : %s %f\n", 
+			       req.type==TEMP ? "TEMP" : "LIGHT", req.data);
+
 			//Fill the fields of MeteoData
-			d.data=req.data;
+			d.data=(int16_t)req.data;
 			gettimeofday(&(d.time),NULL);
 
 			//Write in the right file
@@ -128,7 +131,7 @@ void * logthread(void * args){
 				}
 
 				//Send to server
-				if(write(fdtemp, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
+				if(write(fdtemp, &(d.data), sizeof(int16_t))!=sizeof(int16_t)){
 					perror("Meteo pipe");
 					exit(EXIT_FAILURE);
 				}
@@ -142,7 +145,7 @@ void * logthread(void * args){
 				}
 
 				//Send to server
-				if(write(fdlight, &d, sizeof(MeteoData))!=sizeof(MeteoData)){
+				if(write(fdlight, &(d.data), sizeof(MeteoData))!=sizeof(int16_t)){
 					perror("Meteo pipe");
 					exit(EXIT_FAILURE);
 				}
