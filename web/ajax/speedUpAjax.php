@@ -34,9 +34,7 @@ if( !$pipe ){
    goto end_label;
 }
 
-file_put_contents("/tmp/logloglog", "BONJOUR\n", FILE_APPEND);
 fwrite($pipe, chr($arg), 2);
-file_put_contents("/tmp/logloglog", "$arg BYE\n", FILE_APPEND);
 
 fclose($pipe);
 

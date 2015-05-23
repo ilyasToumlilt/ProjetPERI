@@ -47,6 +47,7 @@ function get_bootstrap_scripts() {
 	 <script src='./js/charts-flot.js'></script>
 	 <script src='./js/speedUp.js'></script>
 	 <script src='./js/turn.js'></script>
+	 <script src='./js/temperature.js'></script>
    </head>
 
    <body data-twttr-rendered="true" cz-shortcut-listen="true" id="top" data-spy="scroll" data-target=".subnav" data-offset="80">
@@ -89,12 +90,13 @@ function get_bootstrap_scripts() {
       <div id='meteoStationContainer'>
 	 <div class="panel panel-default">
 	    <div class="panel-heading">
-	       <h3 class="panel-title"><span class="glyphicon glyphicon-tint" aria-hidden="true"></span> Meteo Station</h3>
+	       <h3 class="panel-title">
+		  <span class="glyphicon glyphicon-tint" aria-hidden="true"></span> Meteo Station
+		  <span id="temperatureLoading" style="display: none;"> ...</span>
+	       </h3>
 	    </div>
-	    <div class="panel-body">
-	       <?php
-	       echo $temperature
-	       ?>
+	    <div id="temperatureContainer" class="panel-body">
+	       <span id="temperatureValue"></span> °C
 	    </div>
 	 </div>
       </div>

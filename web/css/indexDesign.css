@@ -21,3 +21,9 @@
    top: 250px;
    width: 95%;
 }
+
+#temperatureContainer
+{
+   font-size: 400%;
+   padding: 30px;
+}
