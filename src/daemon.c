@@ -69,7 +69,7 @@ void * logthread(void * args){
 
 
 		}else{
-			usleep(1000);
+			usleep(100000);
 		}
 	}
 
@@ -81,6 +81,8 @@ int main (int argc, char ** argv){
 	fd_set active_fd;
 	int i;
 	int data;
+	int fdmax;
+	int16_t speed = 50, turn = 50;
 
 	//Check arguments
 	if(argc!=3){
@@ -89,27 +91,29 @@ int main (int argc, char ** argv){
 	}
 
 	//Open command pipe
-	if((fdspeed=mkfifo("speedpipe", O_RDWR))!=0){
+	if((fdspeed=mkfifo("speedpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
 		perror("mkfifo (speedpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdturn=mkfifo("turnpipe", O_RDWR))!=0){
+	if((fdturn=mkfifo("turnpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
 		perror("mkfifo (turnpipe)");
 		exit(EXIT_FAILURE);
 	}
 
 	//Open meteo pipe
-	if((fdtemp=mkfifo("temppipe",O_RDWR))!=0){
+	if((fdtemp=mkfifo("temppipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
 		perror("mkfifo (temppipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdlight=mkfifo("lightpipe",O_RDWR))!=0){
+	if((fdlight=mkfifo("lightpipe", O_RDWR | O_CREAT | O_TRUNC))!=0){
 		perror("mkfifo (lightpipe)");
 		exit(EXIT_FAILURE);
 	}
 
+	fdmax = (fdspeed<fdturn) ? (fdturn+1) : (fdspeed+1);
+	
 	//FD set
 	FD_ZERO(&active_fd);
 	FD_SET(fdspeed, &active_fd);
@@ -129,28 +133,41 @@ int main (int argc, char ** argv){
 
 	//Main loop
 	while(1){
-	
-		if (select(FD_SETSIZE, &active_fd, NULL, NULL, NULL) < 0){
+		FD_ZERO(&active_fd);
+		FD_SET(fdspeed, &active_fd);
+		FD_SET(fdturn, &active_fd);
+		if (select(fdmax, &active_fd, NULL, NULL, NULL) < 0){
 			perror ("select");
 			exit (EXIT_FAILURE);
 	        }
 
-		for (i = 0; i < FD_SETSIZE; i++){
-        		if (FD_ISSET (i, &active_fd)){
-				if (read(i, &data, sizeof(int)) < 0){
-					perror("read");
-					exit(EXIT_FAILURE);
-				}
+		if (FD_ISSET (fdturn, &active_fd)){
+			if (read(fdturn, &data, sizeof(int16_t)) < 0){
+				perror("read");
+				exit(EXIT_FAILURE);
+			}
 
-				pthread_mutex_lock(&radio_mutex);
-				if (!radio.write(&data, sizeof(int))){
-					perror("radio write");
-					exit(EXIT_FAILURE);
-				}
-				pthread_mutex_lock(&radio_mutex);
-  			}
 		}
-	}
+		if (FD_ISSET (fdspeed, &active_fd)){
+			if (read(fdspeed, &data, sizeof(int16_t)) < 0){
+				perror("read");
+				exit(EXIT_FAILURE);
+			}
+		}
+	
+		pthread_mutex_lock(&radio_mutex);
+		if (!radio.write(&data, sizeof(int16_t))){
+			perror("radio write");
+			exit(EXIT_FAILURE);
+		}
 
+		if (!radio.write(&turn, sizeof(int16_t))){
+			perror("radio write");
+			exit(EXIT_FAILURE);
+		}
+		pthread_mutex_unlock(&radio_mutex);
+
+	}
+	
 	return EXIT_SUCCESS;
 }

@@ -1,4 +1,4 @@
-#define _XOPEN_SOURCE 776
+#define _XOPEN_SOURCE 777
 
 #include <stdlib.h>
 #include <stdio.h>   
