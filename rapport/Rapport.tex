@@ -1,0 +1,30 @@
+\documentclass{scrreprt}
+\usepackage[margin=0.7in]{geometry} %réduire marges
+
+\setkomafont{disposition}{\normalfont\bfseries}
+
+%french
+\usepackage[utf8]{inputenc}
+\usepackage[colorlinks=true,urlcolor=blue,linkcolor=blue]{hyperref}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[francais]{babel} %en Français
+\usepackage{graphicx} %pour les images
+\usepackage[pdftex]{graphicx}
+
+\title{Projet PERI}
+\subtitle{\textit{Rapport}\vspace{-5ex}}
+\date{26 mai 2015}
+\author{Maxime \textsc{Bittan}, Redha \textsc{Gouicem}, Alexandra \textsc{Hospital}, Ilyas \textsc{Toumlilt}}
+\maketitle
+\tableofcontents \newpage
+
+\begin{document}
+
+\include{Introduction}
+\include{Serveur}
+\include{Arduino}
+\pagenumbering{arabic}
+
+
+\end{document}
