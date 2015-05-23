@@ -15,7 +15,7 @@
 
 typedef struct _meteodata {
 	struct timeval time;
-	float data;
+	int16_t data;
 } MeteoData;
 
 enum { TEMP, LIGHT };
