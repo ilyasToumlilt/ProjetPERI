@@ -1,5 +1,7 @@
 <?php
 
+define('TURN_FIFO', "/tmp/turnpipe");
+
 $initTurn = 50;
 
 //$SPEED_RESET = 0;
@@ -18,6 +20,23 @@ if ($arg > 100 || $arg < 0) {
    $ret = "Error 102: Invalid Value";
    goto end_label;
 }
+
+if(!file_exists(TURN_FIFO)){
+   if(!posix_mkfifo(TURN_FIFO, 0766)){
+      $ret = "ERROR 012: Cannot open pipe";
+      goto end_label;
+   }
+}
+
+$pipe = fopen(TURN_FIFO, "w");
+if( !$pipe ){
+   $ret = "ERROR 013: Cannot open TURN_FIFO";
+   goto end_label;
+}
+
+fwrite($pipe, chr($arg), 2);
+
+fclose($pipe);
 
 $ret = $arg;
 
