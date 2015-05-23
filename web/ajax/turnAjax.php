@@ -21,6 +21,21 @@ if ($arg > 100 || $arg < 0) {
    goto end_label;
 }
 
+if(!file_exists(TURN_FIFO)){
+   $ret = "ERROR 010: Daemon isn't lunched yet";
+   goto end_label;
+}
+
+$pipe = fopen(TURN_FIFO, "w");
+if( !$pipe ){
+   $ret = "ERROR 013: Cannot open TURN_FIFO";
+   goto end_label;
+}
+
+fwrite($pipe, chr($arg), 2);
+
+fclose($pipe);
+
 $ret = $arg;
 
 end_label:

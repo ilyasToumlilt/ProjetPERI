@@ -30,11 +30,11 @@ $(document).ready(function() {
    }  
    
    var temperatureUpdateInterval = 1000;
-    function updateTemperature() {
+   function updateTemperature() {
       if( !tempLock ){
 	 tempLock = 1;
 	 document.getElementById("temperatureLoading").style.display = "initial";
-	 ajax_temperature("./ajax/temperatureAjax", 0, receiveTemperature, 0);
+	 ajax_temperature("./ajax/temperatureAjax.php", 0, receiveTemperature, 0);
       }
       setTimeout(updateTemperature, temperatureUpdateInterval);
    }

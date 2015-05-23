@@ -28,23 +28,16 @@ function turnAjaxResponseHandler(xhr, arg)
 
 function onClickLeftHandler()
 {
-    if (turnVal > 0) {
-	/*
+   if (turnVal > 0) {
       var params = "arg=" + (turnVal - 5);
-       ajax_car("./ajax/turnAjax.php", params, turnAjaxResponseHandler, 0);
-*/
-       turnVal = turnVal - 5;
-	       updateTurnProgressBar();
+      ajax_car("./ajax/turnAjax.php", params, turnAjaxResponseHandler, 0);
    }
 }
 
 function onClickRightHandler()
 {
-   if (turnVal < 100) { /*
+   if (turnVal < 100) {
       var params = "arg=" + (turnVal + 5);
-       ajax_car("./ajax/turnAjax.php", params, turnAjaxResponseHandler, 0);
-*/
-       turnVal = turnVal + 5;
-	       updateTurnProgressBar();
+      ajax_car("./ajax/turnAjax.php", params, turnAjaxResponseHandler, 0);
    }
 }

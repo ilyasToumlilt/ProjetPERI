@@ -21,6 +21,21 @@ if( $arg > 100 || $arg < 0 ){
    goto end_label;
 }
 
+if(!file_exists(SPEED_FIFO)){
+   $ret = "ERROR 012: Daemon isn't lunched yet";
+   goto end_label;
+}
+
+$pipe = fopen(SPEED_FIFO, "w");
+if( !$pipe ){
+   $ret = "ERROR 013: Cannot open SPEED_FIFO";
+   goto end_label;
+}
+
+fwrite($pipe, chr($arg), 2);
+
+fclose($pipe);
+
 $ret = $arg;
 
 end_label:
