@@ -34,13 +34,13 @@ void * logthread(void * args){
 	Request req;
 
 	//Open temperature logfile
-	if((tempfd=open(filenames[0], 0_WRONLY | O_CREAT | O_APPEND))!=0){
+	if((tempfd=open(filenames[0], O_WRONLY | O_CREAT | O_APPEND))!=0){
 		perror("open (templogfile)");
 		exit(EXIT_FAILURE);
 	}
 
 	//Open light logfile
-	if((lightfd=open(filenames[1],0_WRONLY | O_CREAT | O_APPEND))!=0){
+	if((lightfd=open(filenames[1], O_WRONLY | O_CREAT | O_APPEND))!=0){
 		perror("open (lightlogfile)");
 		exit(EXIT_FAILURE);
 	}
@@ -108,7 +108,6 @@ void * logthread(void * args){
 int main (int argc, char ** argv){
 	pthread_t tid;
 	fd_set active_fd;
-	int i;
 	int data;
 	int fdmax;
 	int16_t speed = 50, turn = 50;
@@ -185,7 +184,7 @@ int main (int argc, char ** argv){
 		}
 	
 		pthread_mutex_lock(&radio_mutex);
-		if (!radio.write(&data, sizeof(int16_t))){
+		if (!radio.write(&speed, sizeof(int16_t))){
 			perror("radio write");
 			exit(EXIT_FAILURE);
 		}
