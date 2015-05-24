@@ -39,7 +39,9 @@ int main(int argc, char** argv)
     
     read(fd, &rr, 2);
     printf("%d\n", rr);
+    /*
     usleep(100000);
+    */
   }
 
   return EXIT_SUCCESS;
