@@ -9,8 +9,8 @@
 // Pin configuration
 int leftM = 6;       // left motor
 int rightM = 7;      // right motor
-int lightSensor = 0;
-int tempSensor = 1;
+int lightSensor = 7;
+int tempSensor = 9;
 
 // Motor command variables
 int leftSpeed;
@@ -24,7 +24,7 @@ struct _motorCmd {
 enum {TEMP, LIGHT};
 struct _sensorMsg {
   uint16_t type;
-  float value;
+  uint16_t value;
 } sensorMsg;
 float voltage;
 
@@ -35,8 +35,8 @@ int timerTemp, timerLight;
 int time;
 
 // nrf configuration
-int nrfCEpin = 9;
-int nrfCSpin = 10;
+int nrfCEpin = 40;
+int nrfCSpin = 53;
 uint8_t addresses[][6] = {"meteo", "motor"};
 RF24 radio(nrfCEpin, nrfCSpin);
 
@@ -79,7 +79,7 @@ void loop()  {
     voltage = analogRead(tempSensor);
     voltage = (float)(1023-voltage)*10000/voltage;
     sensorMsg.type = TEMP;
-    sensorMsg.value = 1/(log(voltage/10000)/3975+1/298.15)-273.15;
+    sensorMsg.value = (uint16_t)(1/(log(voltage/10000)/3975+1/298.15)-273.15);
     Serial.print("Sending temperature ");
     Serial.println(sensorMsg.value);
     if(!radio.write(&sensorMsg,sizeof(struct _sensorMsg))){
@@ -93,7 +93,7 @@ void loop()  {
   if(time - timerLight > lightDelay){
     radio.stopListening();
     sensorMsg.type = LIGHT;
-    sensorMsg.value = analogRead(lightSensor);
+    sensorMsg.value = (int)(analogRead(lightSensor));
     Serial.print("Sending light ");
     Serial.println(sensorMsg.value);
     if(!radio.write(&sensorMsg,sizeof(struct _sensorMsg))){

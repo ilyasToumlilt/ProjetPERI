@@ -1,6 +1,6 @@
 #include "daemon.h"
 
-RF24 radio(RPI_V2_GPIO_P1_15, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
+RF24 radio(22, 0);//RPI_V2_GPIO_P1_15, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
 
 uint8_t addresses[][6] = {"motor","meteo"};
 int fdspeed, fdturn, fdtemp, fdlight;
@@ -114,7 +114,6 @@ void handler(int sig) {
 	exit(EXIT_SUCCESS);
 }
 
-/*Returns random number between min and max*/
 int random(int min, int max) {
 	int low_num=0, hi_num=0;
 
@@ -199,7 +198,7 @@ void * logthread(void * args){
 			radio.read(&req, sizeof(Request));
 			pthread_mutex_unlock(&radio_mutex);
 
-			printf("Data received from arduino : %s %f\n", 
+			printf("Data received from arduino : %s %d\n", 
 			       req.type==TEMP ? "TEMP" : "LIGHT", req.data);
 
 			//Fill the fields of MeteoData
@@ -222,9 +221,9 @@ void * logthread(void * args){
 			case LIGHT: 
 				lightvalues[light_index]=d;
 				light_index=(light_index+1)%MAX_VALUES;
-
+				d.data=d.data/10;
 				//Send to server
-				if(write(fdlight, &(d.data), sizeof(MeteoData))!=sizeof(int16_t)){
+				if(write(fdlight, &(d.data), sizeof(int16_t))!=sizeof(int16_t)){
 					perror("Meteo pipe");
 					exit(EXIT_FAILURE);
 				}
@@ -236,24 +235,24 @@ void * logthread(void * args){
 		}else{
 			pthread_mutex_unlock(&radio_mutex);
 			/*Writing light*/
-			if (write(fdlight, &l, sizeof(int16_t)) == -1) {
-				perror("write lightpipe");
-				exit(EXIT_FAILURE);
-			}
+			//			if (write(fdlight, &l, sizeof(int16_t)) == -1) {
+			//	perror("write lightpipe");
+			//	exit(EXIT_FAILURE);
+			//}
 
-			printf("Sending lightpipe : %d\n", l);
+		//	printf("Sending lightpipe : %d\n", l);
 
 
 
 			/*Writing temperature*/
-			if (write(fdtemp, &t, sizeof(int16_t)) == -1) {
-				perror("write temppipe");
-				exit(EXIT_FAILURE);
-			}
+		//	if (write(fdtemp, &t, sizeof(int16_t)) == -1) {
+		//		perror("write temppipe");
+		//		exit(EXIT_FAILURE);
+		//	}
 
-			printf("Sending temppipe : %d\n", t);
-			t=(t+1)==101?0:t+1;
-			l=(l+1)==101?0:l+1;
+		//	printf("Sending temppipe : %d\n", t);
+		//	t=(t+1)==101?0:t+1;
+		//	l=(l+1)==101?0:l+1;
 			usleep(100000);
 		}
 	}
@@ -349,6 +348,7 @@ int main (int argc, char ** argv){
 	radio.begin();
 	//	radio.openWritingPipe(addresses[0]);
 	radio.openReadingPipe(1,0x000000000001LL);
+	radio.startListening();
 
 	//Create thread
 	if(pthread_create(&tid, NULL, logthread, (void *) (&argv[1]))!=0){
@@ -386,15 +386,15 @@ int main (int argc, char ** argv){
 		//Sends the speed and turn data
 		pthread_mutex_lock(&radio_mutex);
 		radio.stopListening();
-		if (!radio.write(&speed, sizeof(int16_t))){
-			perror("radio write");
-			exit(EXIT_FAILURE);
-		}
+		radio.write(&speed, sizeof(int16_t));
+		  //perror("radio write");
+			//	exit(EXIT_FAILURE);
+		
 
-		if (!radio.write(&turn, sizeof(int16_t))){
-			perror("radio write");
-			exit(EXIT_FAILURE);
-		}
+		radio.write(&turn, sizeof(int16_t));
+		  //	perror("radio write");
+		  //	exit(EXIT_FAILURE);
+		
 		radio.startListening();
 
 		pthread_mutex_unlock(&radio_mutex);
