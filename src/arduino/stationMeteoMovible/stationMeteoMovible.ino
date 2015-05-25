@@ -53,24 +53,38 @@ void setup()  {
   time = millis();
   timerTemp = time;
   timerLight = time;
-  leftSpeed = 0;
-  rightSpeed = 0;
+  analogWrite(leftM, 92);
+  analogWrite(rightM,92);
 }
 
 
 void loop()  {
   // read incoming commands for the car
- /* if(radio.available()){
+  if(radio.available()){
     radio.read(&motorCmd,sizeof(struct _motorCmd));
     Serial.print("Motor message : SPEED=");
     Serial.print(motorCmd.speed);
     Serial.print("; STEER=");
     Serial.println(motorCmd.steer);
-    //leftSpeed = motorCmd.speed + (motorCmd.steer - 50)
-    // command the motors
-    //analogWrite(leftM, leftSpeed);
-    //analogWrite(rightM, rightSpeed);
-  }*/
+    // map speed
+    if(motorCmd.speed > 50){
+      leftSpeed  = map(motorCmd.speed, 51, 100, 91, 0);
+      rightSpeed = map(motorCmd.speed, 51, 100, 93, 180);
+    }
+    else if(motorCmd.speed < 50){
+      leftSpeed  = map(motorCmd.speed, 49, 0, 93, 180);
+      rightSpeed = map(motorCmd.speed, 49, 0, 91, 0);
+    }
+    else{
+      leftSpeed  = 92;
+      rightSpeed = 92;
+    }
+    // map steering
+    if(motorCmd.steer < 50)
+      leftSpeed  += map(motorCmd.steer, 49, 0, 1, 30);
+    else if(motorCmd.steer > 50)
+      rightSpeed -= map(motorCmd.steer, 51, 100, 1, 30);
+  }
   
   // send sensors' data if necessary
   time = millis();
