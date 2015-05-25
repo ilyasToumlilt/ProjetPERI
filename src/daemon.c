@@ -346,8 +346,8 @@ int main (int argc, char ** argv){
 
 	//Radio initialization
 	radio.begin();
-	//	radio.openWritingPipe(addresses[0]);
-	radio.openReadingPipe(1,0x000000000001LL);
+	radio.openWritingPipe(0x0000000002LL);
+	radio.openReadingPipe(1,0x0000000001LL);
 	radio.startListening();
 
 	//Create thread

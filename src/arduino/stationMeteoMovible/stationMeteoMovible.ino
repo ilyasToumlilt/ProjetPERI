@@ -4,6 +4,7 @@
 #include <RF24.h>
 #include <nRF24L01.h>
 #include <printf.h>
+#include <Servo.h>
 
 
 // Pin configuration
@@ -40,9 +41,8 @@ int nrfCSpin = 53;
 uint8_t addresses[][6] = {"meteo", "motor"};
 RF24 radio(nrfCEpin, nrfCSpin);
 
-
-
-
+Servo rightWheel;
+Servo leftWheel;
 
 void setup()  { 
   Serial.begin(9600);
@@ -53,14 +53,19 @@ void setup()  {
   time = millis();
   timerTemp = time;
   timerLight = time;
-  analogWrite(leftM, 92);
-  analogWrite(rightM,92);
+  
+  leftWheel.attach(7);
+  rightWheel.attach(6);
+  
+  leftWheel.write(92);
+  rightWheel.write(92);
 }
 
 
 void loop()  {
   // read incoming commands for the car
   if(radio.available()){
+    Serial.println("BEFORE READ");
     radio.read(&motorCmd,sizeof(struct _motorCmd));
     Serial.print("Motor message : SPEED=");
     Serial.print(motorCmd.speed);
@@ -88,8 +93,8 @@ void loop()  {
     // right to pins
     leftSpeed  = constrain(leftSpeed , 0, 180);
     rightSpeed = constrain(rightSpeed, 0, 180);
-    analogWrite(leftM, leftSpeed);
-    analogWrite(rightM, rightSpeed);
+    leftWheel.write(leftSpeed);
+    rightWheel.write(rightSpeed);
   }
   
   // send sensors' data if necessary
