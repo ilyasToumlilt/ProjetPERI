@@ -17,6 +17,7 @@
 #define SPEED_PIPE "/tmp/speedpipe"
 #define TURN_PIPE  "/tmp/turnpipe"
 #define TEMP_PIPE  "/tmp/temppipe"
+#define MAX_VALUES 10000
 
 typedef struct _meteodata {
 	struct timeval time;
