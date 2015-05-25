@@ -84,6 +84,12 @@ void loop()  {
       leftSpeed  += map(motorCmd.steer, 49, 0, 1, 30);
     else if(motorCmd.steer > 50)
       rightSpeed -= map(motorCmd.steer, 51, 100, 1, 30);
+      
+    // right to pins
+    leftSpeed  = constrain(leftSpeed , 0, 180);
+    rightSpeed = constrain(rightSpeed, 0, 180);
+    analogWrite(leftM, leftSpeed);
+    analogWrite(rightM, rightSpeed);
   }
   
   // send sensors' data if necessary
