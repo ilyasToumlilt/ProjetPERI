@@ -13,6 +13,11 @@
 #include <time.h>
 #include <signal.h>
 
+#define LIGHT_PIPE "/tmp/lightpipe"
+#define SPEED_PIPE "/tmp/speedpipe"
+#define TURN_PIPE  "/tmp/turnpipe"
+#define TEMP_PIPE  "/tmp/temppipe"
+
 typedef struct _meteodata {
 	struct timeval time;
 	int16_t data;

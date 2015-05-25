@@ -41,22 +41,22 @@ void handler(int sig) {
 	}
 
 	//Unlink fifo
-	if (unlink("/tmp/lightpipe") == -1) {
+	if (unlink(LIGHT_PIPE) == -1) {
 		perror("close lightpipe");
 		exit(EXIT_FAILURE);
 	}
 
-	if (unlink("/tmp/speedpipe") == -1) {
+	if (unlink(SPEED_PIPE) == -1) {
 		perror("close speedpipe");
 		exit(EXIT_FAILURE);
 	}
 
-	if (unlink("/tmp/turnpipe") == -1) {
+	if (unlink(TURN_PIPE) == -1) {
 		perror("close turnpipe");
 		exit(EXIT_FAILURE);
 	}
 
-	if (unlink("/tmp/temppipe") == -1) {
+	if (unlink(TEMP_PIPE) == -1) {
 		perror("close temppipe");
 		exit(EXIT_FAILURE);
 	}
@@ -201,22 +201,32 @@ int main (int argc, char ** argv){
 	}
 
 	//Open command pipe
-	if(mkfifo("/tmp/speedpipe", 0766)==-1){
+	if(mkfifo(SPEED_PIPE, 0766)==-1){
 		perror("mkfifo (speedpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdspeed=open("/tmp/speedpipe", O_RDWR | O_TRUNC))==-1){
+	if(chmod(SPEED_PIPE, 0766)==-1){
+	  perror("chmod (speedpipe)");
+	  exit(EXIT_FAILURE);
+	}
+	
+	if((fdspeed=open(SPEED_PIPE, O_RDWR | O_TRUNC))==-1){
 		perror("open (speedpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if(mkfifo("/tmp/turnpipe", 0766)==-1){
+	if(mkfifo(TURN_PIPE, 0766)==-1){
 		perror("mkfifo (turnpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdturn=open("/tmp/turnpipe", O_RDWR | O_TRUNC))==-1){
+	if(chmod(TURN_PIPE, 0766)==-1){
+	  perror("chmod (turnpipe)");
+	  exit(EXIT_FAILURE);
+	}
+
+	if((fdturn=open(TURN_PIPE, O_RDWR | O_TRUNC))==-1){
 		perror("open (turnpipe)");
 		exit(EXIT_FAILURE);
 	}
@@ -224,22 +234,22 @@ int main (int argc, char ** argv){
 
 	//Open meteo pipe
 
-	if(mkfifo("/tmp/temppipe", 0766)==-1){
+	if(mkfifo(TEMP_PIPE, 0766)==-1){
 		perror("mkfifo (temppipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdtemp=open("/tmp/temppipe", O_RDWR | O_TRUNC))==-1){
+	if((fdtemp=open(TEMP_PIPE, O_RDWR | O_TRUNC))==-1){
 		perror("open (temppipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if(mkfifo("/tmp/lightpipe", 0766)==-1){
+	if(mkfifo(LIGHT_PIPE, 0766)==-1){
 		perror("mkfifo (lightpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdlight=open("/tmp/lightpipe", O_RDWR | O_TRUNC))==-1){
+	if((fdlight=open(LIGHT_PIPE, O_RDWR | O_TRUNC))==-1){
 		perror("open (lightpipe)");
 		exit(EXIT_FAILURE);
 	}

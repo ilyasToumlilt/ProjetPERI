@@ -13,7 +13,7 @@ function speedUpAjaxResponseHandler(xhr, arg)
    if (xhr.readyState === 4) {
       if (xhr.status === 200) {
 	 if (xhr.responseText) {
-	    if (/^Error/.test(xhr.responseText)) {
+	    if (/^ERROR/.test(xhr.responseText)) {
 	       alert(xhr.responseText);
 	    } else {
 	       speedVal = parseInt(xhr.responseText);

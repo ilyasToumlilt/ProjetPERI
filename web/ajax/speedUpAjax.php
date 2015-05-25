@@ -11,13 +11,13 @@ $initSpeed = 50;
 $ret = "";
 
 if( !isset($_POST['arg']) ){
-   $ret = "Error 010: no speed";
+   $ret = "ERROR 010: no speed";
    goto end_label;
 }
 $arg = $_POST['arg'];
 
 if( $arg > 100 || $arg < 0 ){
-   $ret = "Error 011: Invalid Value";
+   $ret = "ERROR 011: Invalid Value";
    goto end_label;
 }
 
@@ -26,7 +26,7 @@ if(!file_exists(SPEED_FIFO)){
    goto end_label;
 }
 
-$pipe = fopen(SPEED_FIFO, "w");
+$pipe = fopen("/tmp/speedpipe", 'w');
 if( !$pipe ){
    $ret = "ERROR 013: Cannot open SPEED_FIFO";
    goto end_label;
