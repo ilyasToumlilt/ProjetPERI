@@ -9,7 +9,6 @@
 // Pin configuration
 int leftM = 6;       // left motor
 int rightM = 7;      // right motor
-int startCar = 3;    // start car
 int lightSensor = 0;
 int tempSensor = 1;
 
@@ -39,26 +38,29 @@ int time;
 int nrfCEpin = 9;
 int nrfCSpin = 10;
 uint8_t addresses[][6] = {"meteo", "motor"};
-RF24 radio = RF24(nrfCEpin, nrfCSpin);
+RF24 radio(nrfCEpin, nrfCSpin);
+
+
+
+
 
 void setup()  { 
   Serial.begin(9600);
   radio.begin();
-  radio.openWritingPipe(addresses[0]);
-  radio.openReadingPipe(0,addresses[1]);
+  radio.openWritingPipe(0x0000000001LL);
+  radio.openReadingPipe(1,0x0000000002LL);
+  radio.startListening();
   time = millis();
   timerTemp = time;
   timerLight = time;
   leftSpeed = 0;
   rightSpeed = 0;
-  pinMode(startCar, OUTPUT);
-  digitalWrite(startCar, HIGH);
 }
 
 
 void loop()  {
   // read incoming commands for the car
-  if(radio.available(0)){
+ /* if(radio.available()){
     radio.read(&motorCmd,sizeof(struct _motorCmd));
     Serial.print("Motor message : SPEED=");
     Serial.print(motorCmd.speed);
@@ -68,31 +70,38 @@ void loop()  {
     // command the motors
     //analogWrite(leftM, leftSpeed);
     //analogWrite(rightM, rightSpeed);
-  }
+  }*/
   
   // send sensors' data if necessary
   time = millis();
-  //Serial.print("Time - temp = ");
-  //Serial.println(time - timerTemp);
-  //Serial.print("Time - light = ");
-  //Serial.println(time - timerLight);
   if(time - timerTemp > tempDelay){
+    radio.stopListening();
     voltage = analogRead(tempSensor);
     voltage = (float)(1023-voltage)*10000/voltage;
     sensorMsg.type = TEMP;
     sensorMsg.value = 1/(log(voltage/10000)/3975+1/298.15)-273.15;
     Serial.print("Sending temperature ");
     Serial.println(sensorMsg.value);
-    radio.write(&sensorMsg,sizeof(struct _sensorMsg));
-    //Serial.println("Light sent");
+    if(!radio.write(&sensorMsg,sizeof(struct _sensorMsg))){
+      Serial.println("Message sending failed");
+    }
+    else
+      Serial.println("Temperature sent");
     timerTemp = millis();
+    radio.startListening();   
   }
   if(time - timerLight > lightDelay){
+    radio.stopListening();
     sensorMsg.type = LIGHT;
     sensorMsg.value = analogRead(lightSensor);
     Serial.print("Sending light ");
     Serial.println(sensorMsg.value);
-    radio.write(&sensorMsg,sizeof(struct _sensorMsg));
+    if(!radio.write(&sensorMsg,sizeof(struct _sensorMsg))){
+      Serial.println("Message sending failed");
+    }
+    else
+      Serial.println("Light sent");
     timerLight = millis();
+    radio.startListening();
   }
 }
