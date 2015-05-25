@@ -1,7 +1,7 @@
 #include "daemon.h"
 
+RF24 radio(22,0);//RPI_V2_GPIO_P1_15, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
 
-RF24 radio(RPI_V2_GPIO_P1_15, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
 uint8_t addresses[][6] = {"motor","meteo"};
 int fdspeed, fdturn, fdtemp, fdlight;
 int templog, lightlog;
@@ -41,22 +41,22 @@ void handler(int sig) {
 	}
 
 	//Unlink fifo
-	if (unlink("/tmp/lightpipe") == -1) {
+	if (unlink(LIGHT_PIPE) == -1) {
 		perror("close lightpipe");
 		exit(EXIT_FAILURE);
 	}
 
-	if (unlink("/tmp/speedpipe") == -1) {
+	if (unlink(SPEED_PIPE) == -1) {
 		perror("close speedpipe");
 		exit(EXIT_FAILURE);
 	}
 
-	if (unlink("/tmp/turnpipe") == -1) {
+	if (unlink(TURN_PIPE) == -1) {
 		perror("close turnpipe");
 		exit(EXIT_FAILURE);
 	}
 
-	if (unlink("/tmp/temppipe") == -1) {
+	if (unlink(TEMP_PIPE) == -1) {
 		perror("close temppipe");
 		exit(EXIT_FAILURE);
 	}
@@ -91,7 +91,7 @@ void * logthread(void * args){
 	char ** filenames = (char **) args;
 	MeteoData d;
 	Request req;
-
+	int16_t l=0,t=0;
 	//Open temperature logfile
 	if((templog=open(filenames[0], O_WRONLY | O_CREAT | O_APPEND))==-1){
 		perror("open (templogfile)");
@@ -152,13 +152,12 @@ void * logthread(void * args){
 				break;
 			}
 
-
+			printf("Data sent successfully !\n");
 
 		}else{
-			int l = random(0, 100);
 
 			/*Writing light*/
-			if (write(fdlight, &l, sizeof(int)) == -1) {
+			if (write(fdlight, &l, sizeof(int16_t)) == -1) {
 				perror("write lightpipe");
 				exit(EXIT_FAILURE);
 			}
@@ -166,16 +165,16 @@ void * logthread(void * args){
 			printf("Sending lightpipe : %d\n", l);
 
 
-			int t = random(0, 100);
 
 			/*Writing temperature*/
-			if (write(fdtemp, &t, sizeof(int)) == -1) {
+			if (write(fdtemp, &t, sizeof(int16_t)) == -1) {
 				perror("write temppipe");
 				exit(EXIT_FAILURE);
 			}
 
 			printf("Sending temppipe : %d\n", t);
-
+			t=(t+1)==101?0:t+1;
+			l=(l+1)==101?0:l+1;
 			usleep(100000);
 		}
 	}
@@ -186,7 +185,6 @@ void * logthread(void * args){
 int main (int argc, char ** argv){
 	pthread_t tid;
 	fd_set active_fd;
-	int data;
 	int fdmax;
 	int16_t speed = 50, turn = 50;
 
@@ -203,22 +201,32 @@ int main (int argc, char ** argv){
 	}
 
 	//Open command pipe
-	if(mkfifo("/tmp/speedpipe", 0766)==-1){
+	if(mkfifo(SPEED_PIPE, 0766)==-1){
 		perror("mkfifo (speedpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdspeed=open("/tmp/speedpipe", O_RDWR | O_TRUNC))==-1){
+	if(chmod(SPEED_PIPE, 0766)==-1){
+	  perror("chmod (speedpipe)");
+	  exit(EXIT_FAILURE);
+	}
+	
+	if((fdspeed=open(SPEED_PIPE, O_RDWR | O_TRUNC))==-1){
 		perror("open (speedpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if(mkfifo("/tmp/turnpipe", 0766)==-1){
+	if(mkfifo(TURN_PIPE, 0766)==-1){
 		perror("mkfifo (turnpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdturn=open("/tmp/turnpipe", O_RDWR | O_TRUNC))==-1){
+	if(chmod(TURN_PIPE, 0766)==-1){
+	  perror("chmod (turnpipe)");
+	  exit(EXIT_FAILURE);
+	}
+
+	if((fdturn=open(TURN_PIPE, O_RDWR | O_TRUNC))==-1){
 		perror("open (turnpipe)");
 		exit(EXIT_FAILURE);
 	}
@@ -226,22 +234,22 @@ int main (int argc, char ** argv){
 
 	//Open meteo pipe
 
-	if(mkfifo("/tmp/temppipe", 0766)==-1){
+	if(mkfifo(TEMP_PIPE, 0766)==-1){
 		perror("mkfifo (temppipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdtemp=open("/tmp/temppipe", O_RDWR | O_TRUNC))==-1){
+	if((fdtemp=open(TEMP_PIPE, O_RDWR | O_TRUNC))==-1){
 		perror("open (temppipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if(mkfifo("/tmp/lightpipe", 0766)==-1){
+	if(mkfifo(LIGHT_PIPE, 0766)==-1){
 		perror("mkfifo (lightpipe)");
 		exit(EXIT_FAILURE);
 	}
 
-	if((fdlight=open("/tmp/lightpipe", O_RDWR | O_TRUNC))==-1){
+	if((fdlight=open(LIGHT_PIPE, O_RDWR | O_TRUNC))==-1){
 		perror("open (lightpipe)");
 		exit(EXIT_FAILURE);
 	}
@@ -256,8 +264,8 @@ int main (int argc, char ** argv){
 
 	//Radio initialization
 	radio.begin();
-	radio.openWritingPipe(addresses[0]);
-	radio.openReadingPipe(1,addresses[1]);
+	//	radio.openWritingPipe(addresses[0]);
+	radio.openReadingPipe(1,0x000000000001LL);
 
 	//Create thread
 	if(pthread_create(&tid, NULL, logthread, (void *) (&argv[1]))!=0){
@@ -278,17 +286,18 @@ int main (int argc, char ** argv){
 
 		//If there are data in fdturn or fdspeed
 		if (FD_ISSET (fdturn, &active_fd)){
-			if (read(fdturn, &data, sizeof(int16_t)) < 0){
+			if (read(fdturn, &turn, sizeof(int16_t)) < 0){
 				perror("read");
 				exit(EXIT_FAILURE);
 			}
-
+			printf("New value for turn : %d\n", turn);
 		}
 		if (FD_ISSET (fdspeed, &active_fd)){
-			if (read(fdspeed, &data, sizeof(int16_t)) < 0){
+			if (read(fdspeed, &speed, sizeof(int16_t)) < 0){
 				perror("read");
 				exit(EXIT_FAILURE);
 			}
+			printf("New value for speed : %d\n", speed);
 		}
 	
 		//Sends the speed and turn data
@@ -303,7 +312,7 @@ int main (int argc, char ** argv){
 			exit(EXIT_FAILURE);
 		}
 		pthread_mutex_unlock(&radio_mutex);
-
+		printf("Speed and turn values successfully sent to arduino\n");
 	}
 	
 	return EXIT_SUCCESS;

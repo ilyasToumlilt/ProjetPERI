@@ -11,21 +11,19 @@ $initTurn = 50;
 $ret = "";
 
 if (!isset($_POST['arg'])) {
-   $ret = "Error 403: no speed";
+   $ret = "ERROR 403: no speed";
    goto end_label;
 }
 
 $arg = $_POST['arg'];
 if ($arg > 100 || $arg < 0) {
-   $ret = "Error 102: Invalid Value";
+   $ret = "ERROR 102: Invalid Value";
    goto end_label;
 }
 
 if(!file_exists(TURN_FIFO)){
-   if(!posix_mkfifo(TURN_FIFO, 0766)){
-      $ret = "ERROR 012: Cannot open pipe";
-      goto end_label;
-   }
+   $ret = "ERROR 010: Daemon isn't lunched yet";
+   goto end_label;
 }
 
 $pipe = fopen(TURN_FIFO, "w");

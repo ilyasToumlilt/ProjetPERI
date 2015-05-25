@@ -53,13 +53,13 @@ $(document).ready(function() {
 	       } else {
 		  /* Si on est là c'est que la réponse est bonne */
 		  updateChart(parseInt(xhr.responseText));
-		  brightLock = 1;
 	       }
 	    } else {
 	       alert("ERROR: response is not valid");
 	    }
 	 }
       }
+      brightLock = 0;
    }
 
    // setup control widget
