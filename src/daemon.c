@@ -1,8 +1,7 @@
 #include "daemon.h"
 
-RF24 radio(22, 0);//RPI_V2_GPIO_P1_15, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ);
+RF24 radio(22, 0);
 
-uint8_t addresses[][6] = {"motor","meteo"};
 int fdspeed, fdturn, fdtemp, fdlight;
 int templog, lightlog;
 pthread_mutex_t radio_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -114,27 +113,6 @@ void handler(int sig) {
 	exit(EXIT_SUCCESS);
 }
 
-int random(int min, int max) {
-	int low_num=0, hi_num=0;
-
-	if(min < max) {
-		 low_num = min;
-		 hi_num = max +1;
-    	}
-	else {
-		 low_num = max + 1;
-		 hi_num = min;
-   	 }
-
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	 /* using nano-seconds instead of seconds */
-	 srand((time_t)ts.tv_nsec);
-
-	 return (rand()%(hi_num-low_num)) + low_num;
-}
-
 void * logthread(void * args){
 	char ** filenames = (char **) args;
 	MeteoData d;
@@ -213,7 +191,7 @@ void * logthread(void * args){
 
 				//Send to server
 				if(write(fdtemp, &(d.data), sizeof(int16_t))!=sizeof(int16_t)){
-					perror("Meteo pipe");
+					perror("temppipe");
 					exit(EXIT_FAILURE);
 				}
 				break;
@@ -224,7 +202,7 @@ void * logthread(void * args){
 				d.data=d.data/10;
 				//Send to server
 				if(write(fdlight, &(d.data), sizeof(int16_t))!=sizeof(int16_t)){
-					perror("Meteo pipe");
+					perror("lightpipe");
 					exit(EXIT_FAILURE);
 				}
 				break;
@@ -234,25 +212,6 @@ void * logthread(void * args){
 
 		}else{
 			pthread_mutex_unlock(&radio_mutex);
-			/*Writing light*/
-			//			if (write(fdlight, &l, sizeof(int16_t)) == -1) {
-			//	perror("write lightpipe");
-			//	exit(EXIT_FAILURE);
-			//}
-
-		//	printf("Sending lightpipe : %d\n", l);
-
-
-
-			/*Writing temperature*/
-		//	if (write(fdtemp, &t, sizeof(int16_t)) == -1) {
-		//		perror("write temppipe");
-		//		exit(EXIT_FAILURE);
-		//	}
-
-		//	printf("Sending temppipe : %d\n", t);
-		//	t=(t+1)==101?0:t+1;
-		//	l=(l+1)==101?0:l+1;
 			usleep(100000);
 		}
 	}
@@ -281,6 +240,7 @@ int main (int argc, char ** argv){
 	//Blocking all signals
 	sigfillset(&mask);
 	sigprocmask(SIG_SETMASK, &mask, NULL);
+
 	//Open command pipes
 	if(mkfifo(SPEED_PIPE, 0766)==-1){
 		perror("mkfifo (speedpipe)");
@@ -315,7 +275,6 @@ int main (int argc, char ** argv){
 
 
 	//Open meteo pipe
-
 	if(mkfifo(TEMP_PIPE, 0766)==-1){
 		perror("mkfifo (temppipe)");
 		exit(EXIT_FAILURE);
@@ -375,6 +334,7 @@ int main (int argc, char ** argv){
 			}
 			printf("New value for turn : %d\n", turn);
 		}
+
 		if (FD_ISSET (fdspeed, &active_fd)){
 			if (read(fdspeed, &speed, sizeof(int16_t)) < 0){
 				perror("read");
@@ -385,19 +345,16 @@ int main (int argc, char ** argv){
 	
 		//Sends the speed and turn data
 		pthread_mutex_lock(&radio_mutex);
-		radio.stopListening();
-		radio.write(&speed, sizeof(int16_t));
-		  //perror("radio write");
-			//	exit(EXIT_FAILURE);
-		
 
+		radio.stopListening();
+
+		radio.write(&speed, sizeof(int16_t));
 		radio.write(&turn, sizeof(int16_t));
-		  //	perror("radio write");
-		  //	exit(EXIT_FAILURE);
-		
+
 		radio.startListening();
 
 		pthread_mutex_unlock(&radio_mutex);
+
 		printf("Speed and turn values successfully sent to arduino\n");
 	}
 	
