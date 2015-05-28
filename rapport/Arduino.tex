@@ -13,18 +13,18 @@ de température). La communication se fait par nRF24.
 	#include <RF24.h>
 	#include <nRF24L01.h>
 	#include <printf.h>
+	#include <Servo.h>
 \end{lstlisting}
 \end{DDbox}
 
 \section{Variables}
 
-Nous avons besoin de configurer 5 pins :
+Nous avons besoin de configurer 5 pins pour :
 \begin{itemize}
-	\item Moteur droit
-	\item Moteur gauche
-	\item Démarrage de la voiture
-	\item Capteur de luminosité
-	\item Capteur de température
+	\item Le moteur droit
+	\item Le moteur gauche
+	\item Le capteur de luminosité
+	\item Le capteur de température
 \end{itemize}
 \bigbreak
 
@@ -89,7 +89,6 @@ luminosité se sont écoulés (timerTemp et timerLight).
 \bigbreak
 \begin{DDbox}{\linewidth}
 \begin{lstlisting}
-	float voltage;
 	// Timers
 	int tempDelay = 1000;
 	int lightDelay = 100;
@@ -105,8 +104,8 @@ On configure la nRF :
 \begin{DDbox}{\linewidth}
 \begin{lstlisting}
 	// nrf configuration
-	int nrfCEpin = 9;
-	int nrfCSpin = 10;
+	int nrfCEpin = 40;
+	int nrfCSpin = 53;
 	uint8_t addresses[][6] = {"meteo", "motor"};
 	RF24 radio = RF24(nrfCEpin, nrfCSpin);
 
@@ -114,10 +113,21 @@ On configure la nRF :
 \end{DDbox}
 
 
+Enfin, on définit des variables de types Servo pour associer les pins
+aux moteurs :
+\bigbreak
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	Servo rightWheel;
+	Servo leftWheel;
+\end{lstlisting}
+\end{DDbox}
+
+
 \section{Fonction setup()}
 
 La fonction setup() va initialiser les pipes de la nRF en lecture ou en écriture, 
-les timers et la vitesse initiale des moteurs droit et gauche (0). 
+les timers, associe les pins aux servo moteurs et donne la vitesse initiale des moteurs droit et gauche. 
 
 \bigbreak
 \begin{DDbox}{\linewidth}
@@ -125,15 +135,19 @@ les timers et la vitesse initiale des moteurs droit et gauche (0).
 	void setup() {
 		Serial.begin(9600);
 		radio.begin();
-		radio.openWritingPipe(addresses[0]);
-		radio.openReadingPipe(0,addresses[1]);
+		radio.openWritingPipe(0x0000000001LL);
+		radio.openReadingPipe(1,0x0000000002LL);
+		radio.startListening();
 		time = millis();
 		timerTemp = time;
 		timerLight = time;
-		leftSpeed = 0;
-		rightSpeed = 0;
+  
+		leftWheel.attach(7);
+		rightWheel.attach(6);
+
+		leftWheel.write(92);
+		rightWheel.write(92);
 	}
-}
 \end{lstlisting}
 \end{DDbox}
 
@@ -141,25 +155,43 @@ les timers et la vitesse initiale des moteurs droit et gauche (0).
 
 \section{Fonction loop()}
 
-La fonction loop va lire les données reçue sur la nRF s'il y en a (radio.available()), afficher 
-les valeurs de vitesse et de virage reçues (Serial.print()) puis écrire dans les pins associés 
-les valeurs de vitesse des moteurs droit et gauche (analogWrite()).
+La fonction loop va lire les données reçues sur la nRF s'il y en a (radio.available()), afficher 
+les valeurs de vitesse et de virage reçues (Serial.print()) puis écrire ces données dans les variables correspondantes.
 
 \bigbreak
 \begin{DDbox}{\linewidth}
 \begin{lstlisting}
 	void loop() {
-	// read incoming commands for the car
-	if(radio.available(0)){
+		Serial.println("BEFORE READ");
 		radio.read(&motorCmd,sizeof(struct _motorCmd));
 		Serial.print("Motor message : SPEED=");
 		Serial.print(motorCmd.speed);
 		Serial.print("; STEER=");
 		Serial.println(motorCmd.steer);
-		//leftSpeed = motorCmd.speed + (motorCmd.steer - 50)
-		// command the motors
-		analogWrite(leftM, leftSpeed);
-		analogWrite(rightM, rightSpeed);
+		// map speed
+		if(motorCmd.speed > 50){
+			leftSpeed  = map(motorCmd.speed, 51, 100, 91, 0);
+			rightSpeed = map(motorCmd.speed, 51, 100, 93, 180);
+		}
+		else if(motorCmd.speed < 50){
+			leftSpeed  = map(motorCmd.speed, 49, 0, 93, 180);
+			rightSpeed = map(motorCmd.speed, 49, 0, 91, 0);
+		}
+		else{
+			leftSpeed  = 92;
+			rightSpeed = 92;
+		}
+		// map steering
+		if(motorCmd.steer < 50)
+			leftSpeed  += map(motorCmd.steer, 49, 0, 1, 30);
+		else if(motorCmd.steer > 50)
+			rightSpeed -= map(motorCmd.steer, 51, 100, 1, 30);
+    
+		// right to pins
+		leftSpeed  = constrain(leftSpeed , 0, 180);
+		rightSpeed = constrain(rightSpeed, 0, 180);
+		leftWheel.write(leftSpeed);
+		rightWheel.write(rightSpeed);
 	}
 
 \end{lstlisting}
@@ -184,21 +216,35 @@ On procède de la même manière pour l'envoi de la luminosité.
 	// send sensors' data if necessary
 	time = millis();
 	if(time - timerTemp > tempDelay){
-		voltage = analogRead(tempSensor) * 3.3;
+		radio.stopListening();
+		voltage = analogRead(tempSensor);
+		voltage = (float)(1023-voltage)*10000/voltage;
 		sensorMsg.type = TEMP;
-		sensorMsg.value = 1/(log(voltage/10000)/3975+1/298.15)-273.15;
+		sensorMsg.value = (uint16_t)(1/(log(voltage/10000)/3975+1/298.15)-273.15);
 		Serial.print("Sending temperature ");
 		Serial.println(sensorMsg.value);
-		radio.write(&sensorMsg,sizeof(struct _sensorMsg));
+		if(!radio.write(&sensorMsg,sizeof(struct _sensorMsg))){
+			Serial.println("Message sending failed");
+		}
+		else
+			Serial.println("Temperature sent");
 		timerTemp = millis();
+		radio.startListening();   
 	}
 	if(time - timerLight > lightDelay){
+		radio.stopListening();
 		sensorMsg.type = LIGHT;
-		sensorMsg.value = analogRead(lightSensor);
+		sensorMsg.value = (int)(analogRead(lightSensor));
 		Serial.print("Sending light ");
 		Serial.println(sensorMsg.value);
-		radio.write(&sensorMsg,sizeof(struct _sensorMsg));
-		timerTemp = millis();
+		if(!radio.write(&sensorMsg,sizeof(struct _sensorMsg))){
+			Serial.println("Message sending failed");
+		}
+		else
+			Serial.println("Light sent");
+		timerLight = millis();
+		radio.startListening();
 	}
+
 \end{lstlisting}
 \end{DDbox}
