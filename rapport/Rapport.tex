@@ -26,6 +26,7 @@
 
 \usepackage{xcolor}
 
+\setcounter{tocdepth}{3}
 \definecolor{Zgris}{rgb}{0.87,0.85,0.85}
 
 \newsavebox{\BBbox}
@@ -52,10 +53,14 @@
 \input{Introduction}
 
 \chapter{Montage matériel}
+\label{ch:montage}
 \input{Montage}
 
 \chapter{Serveur}
 \input{Serveur}
+
+\chapter{Daemon}
+\input{Daemon}
 
 \chapter{Arduino}
 \input{Arduino}
