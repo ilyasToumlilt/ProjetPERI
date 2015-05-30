@@ -226,6 +226,7 @@ int main (int argc, char ** argv){
 	int fdmax;
 	int16_t speed = 50, turn = 50;
 	sigset_t mask;
+	Command c;
 
 	//Check arguments
 	if(argc!=3){
@@ -298,12 +299,6 @@ int main (int argc, char ** argv){
 
 	fdmax = (fdspeed<fdturn) ? (fdturn+1) : (fdspeed+1);
 	
-	//FD set
-	FD_ZERO(&active_fd);
-	FD_SET(fdspeed, &active_fd);
-	FD_SET(fdturn, &active_fd);
-
-
 	//Radio initialization
 	radio.begin();
 	radio.openWritingPipe(0x000000000002LL);
@@ -348,7 +343,6 @@ int main (int argc, char ** argv){
 		pthread_mutex_lock(&radio_mutex);
 
 		radio.stopListening();
-		Command c;
 		c.speed=speed;
 		c.turn=turn;
 		radio.write(&c, sizeof(Command));
