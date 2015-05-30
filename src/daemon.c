@@ -249,7 +249,7 @@ int main (int argc, char ** argv){
 		exit(EXIT_FAILURE);
 	}
 
-	//Chmod the pipe, otherwise the server won't be able to read it
+	//Chmod the pipe, otherwise the server won't be able to write it
 	if(chmod(SPEED_PIPE, 0766)==-1){
 	  perror("chmod (speedpipe)");
 	  exit(EXIT_FAILURE);
@@ -297,6 +297,7 @@ int main (int argc, char ** argv){
 		exit(EXIT_FAILURE);
 	}
 
+	//Max between fdspeed and fdturn for select
 	fdmax = (fdspeed<fdturn) ? (fdturn+1) : (fdspeed+1);
 	
 	//Radio initialization
@@ -313,6 +314,7 @@ int main (int argc, char ** argv){
 
 	//Main loop
 	while(1){
+		//Initialize file descriptor set
 		FD_ZERO(&active_fd);
 		FD_SET(fdspeed, &active_fd);
 		FD_SET(fdturn, &active_fd);
