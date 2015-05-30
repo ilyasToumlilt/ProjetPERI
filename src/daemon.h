@@ -28,6 +28,10 @@ enum { TEMP, LIGHT };
 
 typedef struct request {
 	uint16_t type;
-	float data;
+	int16_t data;
 } Request;
 
+typedef struct cmd {
+	int16_t speed;
+	int16_t turn;
+} Command;
