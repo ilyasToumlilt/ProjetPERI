@@ -19,6 +19,7 @@
 #define TEMP_PIPE  "/tmp/temppipe"
 #define MAX_VALUES 10000
 
+//What is written on the logfiles
 typedef struct _meteodata {
 	struct timeval time;
 	int16_t data;
@@ -26,11 +27,13 @@ typedef struct _meteodata {
 
 enum { TEMP, LIGHT };
 
+//What is received from the arduino
 typedef struct request {
 	uint16_t type;
 	int16_t data;
 } Request;
 
+//What we send to the arduino
 typedef struct cmd {
 	int16_t speed;
 	int16_t turn;
