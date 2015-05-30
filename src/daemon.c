@@ -251,8 +251,8 @@ int main (int argc, char ** argv){
 
 	//Chmod the pipe, otherwise the server won't be able to write it
 	if(chmod(SPEED_PIPE, 0766)==-1){
-	  perror("chmod (speedpipe)");
-	  exit(EXIT_FAILURE);
+		perror("chmod (speedpipe)");
+		exit(EXIT_FAILURE);
 	}
 	
 	if((fdspeed=open(SPEED_PIPE, O_RDWR | O_TRUNC))==-1){
