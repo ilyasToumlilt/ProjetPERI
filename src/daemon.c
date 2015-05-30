@@ -200,6 +200,7 @@ void * logthread(void * args){
 				lightvalues[light_index]=d;
 				light_index=(light_index+1)%MAX_VALUES;
 				d.data=d.data/10;
+
 				//Send to server
 				if(write(fdlight, &(d.data), sizeof(int16_t))!=sizeof(int16_t)){
 					perror("lightpipe");
@@ -305,8 +306,8 @@ int main (int argc, char ** argv){
 
 	//Radio initialization
 	radio.begin();
-	radio.openWritingPipe(0x0000000002LL);
-	radio.openReadingPipe(1,0x0000000001LL);
+	radio.openWritingPipe(0x000000000002LL);
+	radio.openReadingPipe(1,0x000000000001LL);
 	radio.startListening();
 
 	//Create thread
@@ -347,9 +348,10 @@ int main (int argc, char ** argv){
 		pthread_mutex_lock(&radio_mutex);
 
 		radio.stopListening();
-
-		radio.write(&speed, sizeof(int16_t));
-		radio.write(&turn, sizeof(int16_t));
+		Command c;
+		c.speed=speed;
+		c.turn=turn;
+		radio.write(&c, sizeof(Command));
 
 		radio.startListening();
 
