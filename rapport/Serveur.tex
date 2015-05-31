@@ -127,5 +127,246 @@ Et les JS à la fin du body juste avant de fermer </body> :\\
       <script src="lib/extendedBootstrap/js/bootstro.min.js"></script>
 \end{lstlisting}
 \end{DDbox}
-\subsection{L'architecture de la page principale}
 
+\subsection{Architecture de la page principale}
+
+La page principale se compose de trois champs majeurs :
+\begin{itemize}
+\item Control de la voiture
+\item Temperature
+\item Luminosité
+\end{itemize}
+
+Ces champs sont des balises div, dont l’attribut id identifie de manière unique chacun des 3 :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=html]
+  <div id='carControlContainer' >
+
+  </div>
+  
+  <div id='temperatureContainer' >
+
+  </div>
+
+  <div id='graphContainer' >
+
+  </div>
+\end{lstlisting}
+\end{DDbox}
+\\
+Le corps de chaque composant sera représenté par un panel Bootstrap, dont la structure est la suivante :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=html]
+  <div class="panel panel-default">
+	    <div class="panel-heading">
+	       <h3 class="panel-title">
+		  ICI LE TITRE DU PANEL
+	       </h3>
+	    </div>
+	    <div class="panel-body">
+	       ICI LE CORPS DU PANEL
+	    </div>
+	 </div>
+\end{lstlisting}
+\end{DDbox}
+\\
+Bootstrap et ExtendedBoostrap s'occupent de gérer la mise en forme et la mise en page selon la taille de la fenêtre, il suffit par exemple ici de leur indiquer l'attribut class d'une balise pour qu'ils sachent ce qu'il faut faire.
+\\
+\\
+A partir de là, à chaque fois que nous parlerons du contenu d'une section, on fera directement référence au corps du panel.
+
+\subsection{Car control}
+
+Dans cette partie, nous avons besoin d'interactions à double-sens, c’est à dire, et avoir des objets cliquables pour envoyer nos commandes, et pouvoir afficher l’été actuel de ces valeurs, on a donc opté pour des barres deux barres de défilement, une pour contrôler la vitesse de la voiture et une autre pour contrôler son orientation, les deux barres son munies de deux flèches pour chaque extrémité permettant d’incrémenter/décrémenter les valeurs.\\
+Le changement des valeurs et la gestion du clique seront traitées ultérieurement.
+
+\subsection{Weather station}
+
+Cette partie ne fait qu'afficher en texte brut la valeur de la température.
+
+\subsection{Brightness graph}
+
+La partie la plus compliquée graphiquement, elle contient le graphe qui devrait afficher en temps-réel les valeurs de luminosité reçues. Ce graphe est représenté par un canvas où on commence par dessiner les deux axes et les légendes, puis une fois l’ensemble créé, un fichier js intervient, il s’agit de :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=html]
+<script src='./js/charts-flot.js'></script>
+\end{lstlisting}
+\end{DDbox}
+\\
+Ce fichier définit quelques fonctions essentielles à la gestion du graphe, la partie qui nous intéresse ici est contenue dans
+\begin{lstlisting}[language=java]
+  $(document).ready{}
+  \end{lstlisting}
+et qui veut dire ``exécute mon corps au chargement de la page'', cette partie contient un tableau de donnée data, qu’on initialise de la sorte :\\
+\begin{DDbox}{\linewidth}
+  \begin{lstlisting}[language=java]
+  function initChart() {
+      for(var i = 0; i < totalPoints; i++){
+	 data.push(0);
+	 res.push([i, 0]);
+      }
+      
+      return res;
+   }
+\end{lstlisting}
+\end{DDbox}
+\\
+( res étant une hashmap associant à chaque point de l’axe des y, une valeur data correspondante )
+Nous passons ensuite à l’initialisaion du plot :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=java]
+  var plot = $.plot($("#realtimechart"), [initChart()], options);
+\end{lstlisting}
+\end{DDbox}
+\\
+et à un premier dessin :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=java]
+  plot.setData([res]);
+plot.draw();
+\end{lstlisting}
+\end{DDbox}
+\\
+La suite est donc intuitive, à chaque réception de donnée, on la rajoute au tableau data et on update le chart :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=java]
+  function updateChart(newValue) {
+      if( data.length > 0)
+	 data = data.slice(1);
+      
+      data.push(newValue);
+      
+      // zip the generated y values with the x values
+      res = [];
+      for(var i = 0; i < data.length; i++){
+	 res.push([i, data[i]]);
+      }
+      
+   }
+\end{lstlisting}
+\end{DDbox}
+
+\section{L'interface AJAX}
+
+Gère les communication entre le client et le serveur, composée de fichier javascripts côté client et de scripts PHP côté serveur, nous allons commencer par inclure nos fichiers js sur la page principale :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=html]
+  <script src='./ajax/ajax.js'></script>
+	 <script src='./js/charts-flot.js'></script>
+	 <script src='./js/speedUp.js'></script>
+	 <script src='./js/turn.js'></script>
+	 <script src='./js/temperature.js'></script>
+\end{lstlisting}
+\end{DDbox}
+\\
+Le premier ( ajax.js ) implémente les fonctions permettant d'envoyer nos requêtes HTTP vers le serveur, on utilise une instance la classe XMLHTTPRequest(), à la quelle on associe l'URL cible et la fonction js cible à appeler en cas de réponse, ansi que les données à envoyer sous forme de paramètres en POST. Le corps de la fonction est simple, et nous donne :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=java]
+  function ajax_brightness(url, flux, rappel, arg, method) {
+  var r = window.XMLHttpRequest ? new XMLHttpRequest() :
+    (window.ActiveXObject ?  new ActiveXObject("Microsoft.XMLHTTP") : '');
+  if (!r) return false;
+  r.onreadystatechange = function () {rappel(r, arg);};
+  r.open(method ? method : 'POST', url, true);
+  if (flux)
+      r.setRequestHeader("Content-Type", 
+                         "application/x-www-form-urlencoded; ");
+  r.send(flux);
+  return true;
+}
+\end{lstlisting}
+\end{DDbox}
+\\
+Les autres fichiers contiennent justement ces fonctions de rappel, en plus des fonctions de déclenchement ( par timeout ou par clique selon le besoin ) des requêtes AJAX.\\
+Prenons pour exemple la temperature, le fichier temperature.js se charge de gérer le champ température, chaque seconde il fait appel à :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=java]
+var temperatureUpdateInterval = 1000;
+   function updateTemperature() {
+      if( !tempLock ){
+	 tempLock = 1;
+	 document.getElementById("temperatureLoading").style.display = "initial";
+	 ajax_temperature("./ajax/temperatureAjax.php", 0, receiveTemperature, 0);
+      }
+      setTimeout(updateTemperature, temperatureUpdateInterval);
+   }
+\end{lstlisting}
+\end{DDbox}
+\\
+cette fonction s'occupe d'appeler, en passant par le script ajax, le script PHP serveur temperatureAjax.php, qui se charge lire dans le pipe et renvoyer en texte brut la valeur de la temperature ( ou des erreurs en cas de non présence du démon, ou de mauvaise requête ) :
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=php]
+<?php
+
+define('TEMP_FIFO', "/tmp/temppipe");
+
+$ret = "";
+
+if(!file_exists(TEMP_FIFO)){
+   $ret = "ERROR 030: Daemon isn't lunched yet";
+   goto end_label;
+}
+
+$pipe = fopen(TEMP_FIFO, "r");
+if( !$pipe ){
+   $ret = "ERROR 031: Cannot open TEMP_FIFO pipe";
+   goto end_label;
+}
+
+$ret = ord(fread($pipe, 2));
+
+fclose($pipe);
+
+end_label:
+   header("Content-type: text/plain;charset=utf-8");
+   echo $ret;
+\end{lstlisting}
+\end{DDbox}
+\\
+Une fois la valeur retournée, la fonction de rappel est appelée :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=java]
+  function receiveTemperature(xhr, arg){
+      if (xhr.readyState === 4) {
+	 if (xhr.status === 200) {
+	    if (xhr.responseText) {
+	       if (/^Error/.test(xhr.responseText)) {
+		  alert(xhr.responseText);
+	       } else {
+		  /* Si on est le c est que la reponse est bonne */
+		  tempVal = parseInt(xhr.responseText);
+		  updateTemperatureField();
+		  tempLock = 0;
+		  document.getElementById("temperatureLoading").style.display = "none";
+	       }
+	    } else {
+	       alert("ERROR: response is not valid");
+	    }
+	 }
+      }
+   }  
+\end{lstlisting}
+\end{DDbox}
+\\
+Remarque, la fonction updateTemperatureField() utilise l'arbre syntaxique DOM pour modifier le contenu de la balise temperature :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=html]
+  function updateTemperatureField()
+   {
+      document.getElementById("temperatureValue").innerHTML = tempVal;
+   }
+\end{lstlisting}
+\end{DDbox}
+
+\subsection{Synchronisation}
+
+Pour assurer la réactivité de la page, et pour éviter l'empilement inutile des commandes, une synchronisation entre le client et le serveur s'impose, on se fixe comme règle de ne jamais envoyer une deuxième requête, tant que la première n'a pas été satisfaite, pour celà j'ai utiliser un système de lock ( du set/reset classique ) sur les appels à la fonction ajax.\\
+Ainsi tout second appel tombera systèmatiquement à l'eau.\\
+
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=html]
+  e
+\end{lstlisting}
+\end{DDbox}
