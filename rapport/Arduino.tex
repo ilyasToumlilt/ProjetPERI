@@ -19,7 +19,7 @@ de température). La communication se fait par nRF24.
 
 \section{Variables}
 
-Nous avons besoin de configurer 5 pins pour :
+Nous avons besoin de configurer 4 pins pour :
 \begin{itemize}
 	\item Le moteur droit
 	\item Le moteur gauche
@@ -56,8 +56,8 @@ de la voiture. Ce qui donne le code suivant :
 	int leftSpeed;
 	int rightSpeed;
 	struct _motorCmd {
-		int speed;
-		int steer;
+		uint16_t speed;
+		uint16_t steer;
 	} motorCmd;
 
 \end{lstlisting}
@@ -73,7 +73,7 @@ de l'Arduino au serveur.
 	enum {TEMP, LIGHT};
 	struct _sensorMsg {
 		uint16_t type;
-		float value;
+		uint16_t value;
 	} sensorMsg;
 
 \end{lstlisting}
