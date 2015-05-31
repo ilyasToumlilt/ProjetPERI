@@ -30,11 +30,11 @@ enum { TEMP, LIGHT };
 //What is received from the arduino
 typedef struct request {
 	uint16_t type;
-	int16_t data;
+	uint16_t data;
 } Request;
 
 //What we send to the arduino
 typedef struct cmd {
-	int16_t speed;
-	int16_t turn;
+	uint16_t speed;
+	uint16_t turn;
 } Command;
