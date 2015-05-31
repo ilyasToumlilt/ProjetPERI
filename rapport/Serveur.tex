@@ -1,0 +1,131 @@
+Exécuté sur la Raspberry Pi, sollicité par un ( ou plusieurs ) client(s) d’un côté et un ( ou plusieurs ) démon(s) de l’autre. Le serveur web est la pièce maîtresse de ce projet, il doit pouvoir servir toutes les requêtes, en continu, tout en assurant la cohérence des données transitantes, leur fiabilité, ainsi qu’une gestion intelligente de la mémoire ( les requêtes pouvant facilement atteindre un nombre très considérable ). Nous reviendrons plus en détails sur la nature de ces requêtes ainsi que les implémentations choisies.
+
+\section{Choix de l'environement}
+
+\subsection{Le serveur HTTP}
+
+Entre de simples scripts sh/python en CGI, un NodeJS plus flexible mais peu fiable, nous avons décidé de jouer la carte de la performance - et de l’enchevêtrement aussi, je l’assume - et nous choisîmes donc l’\textbf{Apache2}.\\
+Ce serveur HTTP, l’un des plus populaires du World Wide Web, est spécialement adapté pour les environnements UNIX, une harmonie dont nous profiterons pleinement, vu que notre Raspberry Pi tourne sous Linux. Apache2 est également conçu pour prendre en charge de nombreux modules lui donnant des fonctionnalités supplémentaires, nous en utiliserons les suivantes :
+\begin{itemize}
+\item Interprétation du langage PHP.
+\item Serveur Proxy, nécessaire pour l’exécution sur l’environnement de la fac ( ARI alias PPTI ).
+\item Common gateway interface.
+\item Server sides includes.
+\item La réécriture d’URLs.
+\item Et quelques protocoles de communication additionnels.
+\end{itemize}
+( Nous reviendrons sur l’utilisation de ces fonctionnalités quand nous commencerons à voir leur implémentation )
+
+\subsection{Choix des langages}
+
+L’adoption d’Apache2 nous permet donc un choix très large au niveau des langages, cependant, PHP reste le langage le mieux interprété par ce serveur HTTP.\\
+PHP est un langage de script, utilisé le plus souvent côté serveur. Dans notre architecture, le serveur Apache2 interprète le code PHP des pages Web ou des scripts demandés et génère du code (HTML, XHTML, CSS par exemple) et des données (JPEG, GIF, PNG par exemple) pouvant être interprétées et rendues par un navigateur web.\\
+Autre sa souplesse, PHP nous permettra une gestion assez ``bas niveau'' ( par rapport à ses concurrents, dans le domaine ) de notre serveur Web et de ses protocoles, il implémente également toute la bibliothèque POSIX dont nous allons nous servir pour relayer les données au démon.\\
+Un dernier avantage de PHP, et sûrement le plus pertinent, et son côté ``dynamique'' ( ce qui fait majoritairement son succès et son adoption par des géants comme Google, Facebook … ). Une page web dynamique ( par opposition à une page web statique ), et une page dont le contenu peut varier en fonction des informations qui ne sont connues qu’au moment de sa consultation, mieux le contenu de ces pages peut même varier après le chargement et au cours du temps, sans avoir à recharger la page, pour cela nous aurons besoin de définir une méthode de dialogue, entre le navigateur client, et le serveur.\\
+\\
+Avant de définir cette méthode, nous avons besoin de définir les langages côté client, pour ce côté, on restera dans le classique, HTML + CSS pour l’affichage de la page, et de JavaScript ( JS, JQuery et DOM ) pour les scripts client.
+\\
+La méthode de dialogue entre le client et le serveur sera donc AJAX, qui permet de construire des sites web dynamique et interactifs, dans notre cas cette communication se fera essentiellement en manipulant des XMLHttpRequest, ainsi :
+\begin{itemize}
+\item DOM et JavaScript permettent de modifier l'information présentée dans le navigateur en respectant sa structure
+\item l'objet XMLHttpRequest sert au dialogue asynchrone avec le serveur Web
+\item XML structure les informations transmises entre serveur Web et navigateur.
+\end{itemize}
+
+\subsection{Installation de l'environnement}
+
+Afin que tout cela fonctionne, il est nécessaire d’installer quelques outils, le script ./web/install\_env.sh contient les commandes bash nécessaires :\\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=bash]
+        sudo aptitude update
+        sudo aptitude upgrade
+        sudo aptitude install apache2
+        sudo aptitude install php5
+        sudo aptitude install mysql-server php5-mysql
+        sudo rm /var/www/index.html
+        echo "<?php phpinfo(); ?>" > /var/www/index.php
+\end{lstlisting}
+\end{DDbox}
+\\
+Vous l’aurez donc compris, les sources php doivent se trouver dans /var/www/ pour être interprétées, chemin dont le point d’entrée est http://localhost/ , depuis un navigateur web.
+
+
+\section{Conception du serveur Web}
+
+De manière plus conceptuelle, le client a besoin de pouvoir générer la page web depuis son navigateur ( nous reviendrons sur les composants de cette page ) et donc y avoir un accès par URL, cette adresse devrait mener, du point de vue de notre projet, au point d’entrée du serveur, c’est à dire dans le cas d’un serveur php, le fichier index.php placé à la racine du projet.\\
+Le client aura ensuite besoin de transmettre des commandes asynchrones et dynamiques pour modifier les données sur son interface ou pour donner des ordres ( commandes ) au serveur, pour cela nous utiliserons le protocole AJAX décrit plus haut.\\
+Finalement, et d’un autre côté, le démon utilisera, pour ses communications avec le serveur des pipes fifo Posix.
+
+\section{Retour sur la station météo mobile}
+
+Maintenant que l’environnement, langages et protocoles ont été définis, nous pouvons y refléter le but de notre projet, en effet, contrôler la voiture signifie envoyer des commandes vers celle-ci, le client devrait donc pouvoir, à l’aide de la page web générée, envoyer des commandes asynchrones, contrôlant la vitesse ou l’orientation, cette commande, et comme présenté plus haut, sera relayée grâce à l’AJAX qui va réveiller un script cible sur le serveur destiné à traiter cette commande, dans notre cas, l’écriture d’une commande correspond à son transfert sur le pipe du démon. Une autre partie du projet consiste à recueillir les informations relatives à la température et luminosité pour les afficher sur la page web, pour cela les scripts serveur devront lire sur le pipe démon qui fournira ces données, et les écrire sur les champs dédiés de l’interface, en passant encore par le moyen de communication asynchrone, AJAX.
+
+\section{La page web principale - IHM}
+
+Générée à la demande par l’utilisateur depuis un URL, elle se compose d’une interface web ( HTML + CSS ), et d’un ensemble de scipts JavaScript permettant le dynamisme et implémentant en utilisant JQuery et DOM, l’IHM ( Interface Homme-Machine ).
+
+\subsection{Les bibliothèques utilisées}
+
+Tant utiles pour l’ergonomie que pour leur facilité d’utilisation, les bibliothèques graphiques ( ou CssLibs pour les HTMLiens ) nous offrent des avantages très considérables dont nous allons profiter, le but est simple : avoir une interface simple, jolie et réactive, sans coder une seule ligne pour l’implémenter.\\
+Ces librairies se trouvent dans ./web/lib/\\
+\\
+\textbf{Twitter Boostrap :}\\
+Très connu pour la création de sites et d’applications web, bootstrap est une collection d’outils contenant des codes HTML et CSS, des formulaires, boutons et autres éléments interactifs, ainsi que des extension JavaScript en option.
+\\
+\textbf{Extended Bootstrap:}\\
+Une version étendue de Bootstrap, que j’ai développé moi-même l’été dernier et qui contient un ensemble de scripts ( js ) permettant d’avoir des pages web en responsive design, version mobile mais surtout surcouchant la classe plot, permettant de dessiner des graphes et schéma, dont on va nous servir pour éviter de passer par google charts.\\
+Une documentation en version html de cette lib est disponible dans ./web/lib/doc/\\
+\\
+\textbf{Jquery :}\\
+Une biblithèque javascript permettant de parcourir et modifier le DOM ( arbre syntaxique de la page HTML ) et la gestion des événements et de effets visuels.\\
+\\
+On va donc commencer par inclure toutes ses libs dans notre page HTML :\\
+\\
+Les CSS dans les headers :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=html]
+  <link rel='stylesheet' media='all' type='text/css' href='./lib/bootstrap-3.3.4/dist/css/bootstrap.css' />
+	 <!-- extended bootstrapCss -->
+	 <link href="lib/extendedBootstrap/css/bootstrap.min.css" rel="stylesheet" />
+	 <link href="lib/extendedBootstrap/css/font-awesome.min.css" rel="stylesheet" />
+
+	 <link rel="stylesheet" href="lib/extendedBootstrap/css/jquery-ui-1.10.3.custom.min.css" />
+	 <link rel="stylesheet" href="lib/extendedBootstrap/css/chosen.css" />
+	 <link rel="stylesheet" href="lib/extendedBootstrap/css/datepicker.css" />
+	 <link rel="stylesheet" href="lib/extendedBootstrap/css/bootstrap-timepicker.css" />
+	 <link rel="stylesheet" href="lib/extendedBootstrap/css/colorpicker.css" />
+	 <link href="lib/extendedBootstrap/css/refineslide.css" rel="stylesheet" />
+	 <link href="lib/extendedBootstrap/css/bootstro.css" rel="stylesheet" />
+
+	 <link rel="stylesheet" href="lib/extendedBootstrap/css/jquery-slider.css" />
+	 <link rel="stylesheet" href="lib/extendedBootstrap/css/checkbox-radio-switch.css" />
+	 <link href="lib/extendedBootstrap/css/extend.css" rel="stylesheet" />
+\end{lstlisting}
+\end{DDbox}
+\\
+Et les JS à la fin du body juste avant de fermer </body> :\\
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=html]
+  <script src="lib/extendedBootstrap/js/bootstrap.min.js"></script>
+      <script src="lib/extendedBootstrap/js/jquery-ui-1.10.3.custom.min.js"></script>
+
+      <script src="lib/extendedBootstrap/js/flot/jquery.flot.min.js"></script>
+      <script src="lib/extendedBootstrap/js/flot/jquery.flot.pie.min.js"></script>
+      <script src="lib/extendedBootstrap/js/flot/jquery.flot.resize.min.js"></script>
+
+      <script src="lib/extendedBootstrap/js/date-time/bootstrap-datepicker.min.js"></script>
+      <script src="lib/extendedBootstrap/js/date-time/bootstrap-timepicker.min.js"></script>
+      <script src="lib/extendedBootstrap/js/bootstrap-colorpicker.min.js"></script>
+
+      <script src="lib/extendedBootstrap/js/jquery.knob.min.js"></script>
+      <script src="lib/extendedBootstrap/js/jquery.autosize-min.js"></script>
+      <script src="lib/extendedBootstrap/js/jquery.inputlimiter.1.3.1.min.js"></script>
+      <script src="lib/extendedBootstrap/js/jquery.maskedinput.min.js"></script>
+      <script src="lib/extendedBootstrap/js/jquery.refineslide.js"></script>
+      <script src="lib/extendedBootstrap/js/bootbox.js"></script>
+      <script src="lib/extendedBootstrap/js/bootstro.min.js"></script>
+\end{lstlisting}
+\end{DDbox}
+\subsection{L'architecture de la page principale}
+
