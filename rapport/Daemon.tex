@@ -1,0 +1,683 @@
+Le daemon est le processus permettant d'assurer les communications 
+allant du serveur vers l'arduino (dans le cas où le client envoie des commandes
+à la voiture) et les communications allant de l'arduino vers le serveur (envoie
+des données météo prises par les capteurs). Dans ce cas, le daemon ne se 
+contente pas de transmettre la valeur du capteur, il va aussi la garder dans 
+un fichier, ce qui nous permet d'avoir un historique des valeurs prises par les
+différents capteurs. 
+
+Le daemon comporte donc deux threads. L'un sert à recevoir les données des
+capteurs et les envoyer au serveur via des pipes. L'autre sert à recevoir les
+commandes envoyées par l'utilisateur et les transmettre à la voiture.
+
+\section{Prérequis}
+
+Afin que le daemon fonctionne, il faut que les capteurs nRF24l01 soient
+correctement branchés sur la Raspberry Pi et sur l'Arduino (voir le chapitre 
+\ref{ch:montage} pour plus d'informations). De plus, afin de pouvoir contrôler
+le nRF24l01, il faut installer la bibliothèque idoine sur la Raspberry Pi.
+
+Cette bibliothèque se trouve dans le dépot git situé à l'adresse suivante : 
+\texttt{https://github.com/tmrh20/RF24}. Pour l'installer, il faut exécuter les
+commandes suivantes dans un terminal : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}[language=bash]
+        git clone https://github.com/tmrh20/RF24
+        cd RF24/
+        make
+        sudo make install
+\end{lstlisting}
+\end{DDbox}
+
+Si on veut utiliser cette bibliothèque dans un programme \texttt{C/C++}, il faut
+inclure le fichier d'en-tête suivant : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        #include <RF24/RF24.h>
+\end{lstlisting}
+\end{DDbox}
+
+De plus il faut compiler le programme avec l'option
+\textbf{-l\texttt{rf24-bcm}}.
+
+\section{Fonctionnement du daemon}
+
+Le code source du daemon est constitué de deux fichiers : un fichier 
+\texttt{daemon.h} contenant l'inclusion des fichiers d'en-tête, la definition
+des constantes utilisées et la déclaration des structures dont nous avons eu
+besoin et un fichier \texttt{daemon.c} contenant le code du daemon.
+
+\subsection{Le fichier daemon.h}
+
+Cette partie a pour but d'expliquer le contenu du fichier \texttt{daemon.h}.
+
+\pagebreak
+
+\subsubsection{Fichiers inclus}
+
+Voici la liste des fichiers d'en-tête nécessaire au fonctionnement du daemon : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        #include <stdlib.h>
+        #include <stdio.h>   
+        #include <sys/types.h>
+        #include <sys/stat.h>
+        #include <stdint.h>       
+        #include <fcntl.h>
+        #include <pthread.h>
+        #include <RF24/RF24.h>
+        #include <unistd.h>
+        #include <sys/select.h>
+        #include <time.h>
+        #include <signal.h>
+\end{lstlisting}
+\end{DDbox}
+
+\subsubsection{Les constantes}
+
+Les communications entre le serveur et le daemon s'effectuent via des tubes
+nommés. Il faut donc définir où se situent ces derniers, c'est pourquoi nous 
+avons décidé de créer les constantes suivantes : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        #define LIGHT_PIPE "/tmp/lightpipe"
+        #define SPEED_PIPE "/tmp/speedpipe"
+        #define TURN_PIPE  "/tmp/turnpipe"
+        #define TEMP_PIPE  "/tmp/temppipe"
+\end{lstlisting}
+\end{DDbox}
+
+Il est possible de modifier ces constantes afin de créer les tubes nommés à un 
+autre endroit. Il faut cependant bien faire attention d'effectuer ces mêmes
+modification dans les scripts du serveur qui utilisent les tubes nommés.
+
+Nous avons définit une constante de plus dans le fichier afin de limiter la
+taille des fichiers de log produit par le thread prévu à cet effet. En effet,
+si le daemon est amené à tourner longtemps, il se peut que les fichiers de logs
+deviennent très gros. La constante \texttt{MAX\_VALUES} permet de définir un
+nombre maximal de valeur à garder dans ce cas là. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        #define MAX_VALUES 10000
+\end{lstlisting}
+\end{DDbox}
+
+Par défaut, la valeur de cette constante est fixée à 10 000. Cela veut dire que
+le daemon va toujours conserver que les 10 000 valeurs les plus récentes pour
+les capteurs (nous verrons plus tard comment ceci est réalisé). Il est bien
+entendu possible de modifier cette valeur pour obtenir des fichiers de logs plus
+ou moins léger.
+
+\pagebreak
+
+\subsubsection{Les structures}
+
+Le daemon utilise plusieurs structures afin de réaliser le travail qu'on lui
+demande. La première est la suivante : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        typedef struct _meteodata {
+                struct timeval time;
+                int16_t data;
+        } MeteoData;
+\end{lstlisting}
+\end{DDbox}
+
+Cette structure représente ce qui est écrit dans les fichiers de log. Le premier
+champs correspond à la date à laquelle la donnée a été reçue par le daemon via
+le nRF24l01. Le second champs représente la donnée reçue.
+
+La fréquence à laquelle les mesures sont effectuées par l'arduino différe selon
+les capteurs. Il faut donc que le message émit par l'arduino contienne une 
+information permettant au daemon de savoir de quel capteur provient la mesure
+effectuée. C'est la raison de la présence de l'enumération suivante : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        enum { TEMP, LIGHT };
+\end{lstlisting}
+\end{DDbox}
+
+Il faut bien entendu que cette énumération soit cohérente avec celle présente
+dans le code uploadé sur l'Arduino. Il est donc évident que si on modifie une
+des deux énumérations, il faut propager la modification dans l'autre.
+
+Le message émit par l'Arduino via le nRF24l01 est représenté par la structure
+suivante : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	typedef struct request {
+		uint16_t type;
+		int16_t data;
+	} Request;
+\end{lstlisting}
+\end{DDbox}
+
+Le champs \texttt{type} prend une des valeurs de l'énumération presentée
+precedemment et permet d'indiquer au daemon de quel capteur provient la
+la valeur reçue. Le second champs de la structure correspond à la valeur
+prise par le capteur en question. Ici aussi il faut que cette structure 
+corresponde à celle présente dans le code uploadé sur l'Arduino.
+
+La dernière structure présente dans le fichier représente ce qui est envoyé à
+l'Arduino : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	typedef struct cmd {
+		int16_t speed;
+		int16_t turn;
+	} Command;	
+\end{lstlisting}
+\end{DDbox}
+
+Le premier champs correspond à la nouvelle vitesse de la voiture et le second
+correspond à la nouvelle direction de la voiture.
+
+\subsection{Le fichier daemon.c}
+
+Ce fichier contient le code du daemon.
+
+\pagebreak
+
+\subsubsection{Variables globales}
+
+La première variable globale est l'objet \texttt{radio} représentant le nRF24l01
+qui nous permet de communiquer avec l'Arduino. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        RF24 radio(22, 0);
+\end{lstlisting}
+\end{DDbox}
+
+Les quatres variables globales suivantes servent à stocker les descripteurs de
+fichier associés aux tubes nommées servant à communiquer avec le serveur. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        int fdspeed, fdturn, fdtemp, fdlight;
+\end{lstlisting}
+\end{DDbox}
+
+Les variables globales \texttt{templog} et \texttt{lightlog} permettent de 
+conserver les descripteurs de fichiers associés aux fichiers de log. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        int templog, lightlog;
+\end{lstlisting}
+\end{DDbox}
+
+Comme le programme est constitué de deux threads, il n'est pas impossible (il
+est même fort probable) qu'il y ait des accès concurrents au nRF24l01. C'est 
+pourquoi nous avons besoin d'une sémaphore assurant l'exclusion mutuelle dans
+les passages du code où l'on utilise les fonctions d'emission/réception de
+données. Ce mécanisme est déjà présent dans les threads POSIX sous la forme d'un
+type : \texttt{pthread\_mutex\_t}. \\
+
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        pthread_mutex_t radio_mutex = PTHREAD_MUTEX_INITIALIZER;
+\end{lstlisting}
+\end{DDbox}
+
+Afin d'obtenir des fichiers de log ayant une taille fixe, nous utilisons la 
+méthode suivante : au lieu d'écrire les valeurs directement dans le fichier
+correspondant, on les écrit dans un tableau de taille \texttt{MAX\_VALUES}.
+Quand on arrive à la fin du tableau, on retourne au début du tableau pour 
+écrire les nouvelles valeurs. De ce fait, on a toujours les \texttt{MAX\_VALUES}
+les plus récentes. L'écriture des valeurs dans le fichier s'effectue au moment 
+où on interrompt le daemon. Cette méthode necessite donc un tableau par capteur,
+et un entier représentant l'indice permettant de savoir où écrire la prochaine
+valeur que l'on va recevoir. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        int temp_index = 0;
+        int light_index = 0;
+        MeteoData tempvalues[MAX_VALUES];
+        MeteoData lightvalues[MAX_VALUES];
+\end{lstlisting}
+\end{DDbox}
+
+\subsubsection{Initialisations}
+
+Au démarrage du programme, on vérifie que le nombre d'arguments est correct. Si
+ce n'est pas le cas, on stoppe le programme et on affiche un message d'erreur.
+\\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Check arguments
+	if(argc!=3){
+		fprintf(stderr,"Usage : %s <templogfile> <lightlogfile>\n",argv[0]);
+		exit(EXIT_FAILURE);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+Ensuite, on change le comportement par défaut lors de la reception d'un signal
+\texttt{SIGINT} (que l'on peut généralement envoyer à un programme en effectuant
+un \texttt{CTRL+C} dans un terminal). Dans l'appel à la fonction
+\texttt{sigaction}, on indique que lors de la réception d'un signal
+\texttt{SIGINT}, on veut que la fonction \texttt{handler} soit éxecutée. Cette
+partie est nécessaire pour que le programme se termine correctement lorsqu'il
+reçoit un signal \texttt{SIGINT}.\\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	/*Sigaction to catch SIGINT*/
+	struct sigaction sigact;
+	sigact.sa_handler = handler;
+	sigaction(SIGINT, &sigact, NULL);
+\end{lstlisting}
+\end{DDbox}
+
+\textbf{Remarque} : On peut redéfinir le comportement d'autre signaux, si on a
+l'intention de tuer le daemon avec autre chose qu'un \texttt{CTRL+C}. Cependant
+cette méthode ne fonctionne pas avec le signal \texttt{SIGKILL}, il est donc
+vivement déconseillé de tuer le daemon avec ce signal.
+
+On masque ensuite tout les signaux pour que les signaux reçus soient traités par
+le thread \texttt{logthread}. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Blocking all signals
+	sigfillset(&mask);
+	sigprocmask(SIG_SETMASK, &mask, NULL);
+\end{lstlisting}
+\end{DDbox}
+
+Il faut ensuite créer les fichiers correspondant aux tubes nommés. Cette action
+est réalisée par la fonction \texttt{mkfifo}, qui prend en paramètre le chemin
+du tube et les droits de celui-ci. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	if(mkfifo(SPEED_PIPE, 0766)==-1){
+		perror("mkfifo (speedpipe)");
+		exit(EXIT_FAILURE);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+Pour les tubes qui sont écrit par le serveur et lus par le daemon (c'est a dire
+les tubes \texttt{SPEED\_PIPE} et \texttt{TURN\_PIPE}), il faut effectuer un 
+\texttt{chmod} en plus car le \texttt{umask} (masque de création de fichier) 
+de la Raspberry Pi ne nous permet pas de créer les pipes avec des droits 
+d'écriture pour les autres utilisateurs. En effet, les droit des tubes 
+crées par \texttt{mkfifo} sont en fait issus de l'équation suivante : 
+\texttt{Droit = ARG \& umask}. Il est a noter que l'utilisateur éxecutant le 
+daemon (ici root, car la bibliothèque nRF24l01 à besoin d'ouvrir
+\texttt{/dev/mem}) et l'utilisateur éxecutant les scripts du serveur sont
+différents, c'est pourquoi nous avons recours à ce genre de méthodes. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Chmod the pipe, otherwise the server won't be able to write it
+	if(chmod(SPEED_PIPE, 0766)==-1){
+	        perror("chmod (speedpipe)");
+	        exit(EXIT_FAILURE);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+Il faut ensuite ouvrir les tubes nommés que nous venons de créer. On ouvre
+tout les tubes en lecture \textbf{ET} en écriture pour que l'ouverture ne soit
+pas bloquante, et que programme puisse continuer sans qu'il y ait un 
+interlocuteur à l'autre bout du tube. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	if((fdspeed=open(SPEED_PIPE, O_RDWR | O_TRUNC))==-1){
+		perror("open (speedpipe)");
+		exit(EXIT_FAILURE);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+Après avoir effectué ces actions pour tout les tubes que l'on veut créer (le
+chmod n'étant utile que pour les tubes écrits par le serveur), il faut 
+déterminer la valeur du descripteur de fichier la plus grande parmis les 
+descripteurs écrit par le serveur (c'est nécessaire pour pouvoir 
+scruter plusieurs descripteurs en même temps grâce à un \texttt{select}). Ceci
+est réalisé par la ligne suivante :\\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	fdmax = (fdspeed<fdturn) ? (fdturn+1) : (fdspeed+1);
+\end{lstlisting}
+\end{DDbox}
+
+Ensuite, il faut initialiser le nRF24l01 et ouvrir les tubes de communication
+nécessaires. Dans notre cas, on ouvre un tube en écriture pour la communication 
+entre le serveur et l'arduino pour les commandes de la voiture (d'adresse 
+\texttt{0x000000000002LL}), et un tube en lecture pour les communications allant
+de l'arduino au serveur (d'adresse \texttt{0x000000000001LL}). \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Radio initialization
+	radio.begin();
+	radio.openWritingPipe(0x000000000002LL);
+	radio.openReadingPipe(1,0x000000000001LL);
+	radio.startListening();
+\end{lstlisting}
+\end{DDbox}
+
+On crée ensuite le thread \texttt{logthread} qui va logger les valeurs prises
+par les capteur présents sur l'Arduino. Le premier argument de l'appel à
+\texttt{pthread\_create} permet de récuperer l'identifiant du thread 
+nouvellement crée. Le second permet de spécifier des options particulieres (ce
+que nous n'avons pas fait). Le troisième est un pointeur sur la fonction 
+éxecutée par le thread (ici \texttt{logthread}). Le dernier argument est un 
+pointeur sur une zone de la mémoire contenant les arguments du thread. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Create thread
+	if(pthread_create(&tid, NULL, logthread, (void *) (&argv[1]))!=0){
+		perror("pthread_create");
+		exit(EXIT_FAILURE);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+\subsubsection{Le thread logthread}
+
+La première action effectuée par le thread lors de sa création est le changement
+du masque des signaux. En effet, comme le thread principal a bloqué tout les 
+signaux, le thread nouvellement crée ne peut en recevoir. Il faut donc démasquer
+tout les signaux, sinon l'envoie d'un \texttt{SIGINT} au processus n'entrainera
+pas sa terminaison. Pour réaliser ceci, on utilise la fonction 
+\texttt{pthread\_sigmask}. On souhaite que ce soit ce thread qui traite la 
+récéption du signal \texttt{SIGINT} car dans le cas où c'est le thread principal
+qui l'effectue, il se peut qu'il y ait des accès concurrents à certaines 
+variables globales, et cela peut donc entrainer des incohérences. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+  	//Set right mask
+	sigemptyset(&mask);
+	pthread_sigmask(SIG_SETMASK, &mask, NULL);
+\end{lstlisting}
+\end{DDbox}
+
+Si le daemon ne s'éxecute pas pour la première fois, il faut lire les valeurs
+contenues dans les fichiers de logs précédemment écrit par celui-ci. Pour 
+réaliser cette opération, on récupere la structure \texttt{stat} associée au
+fichier (cette structure contient les informations de celui-ci : taille, droits,
+...). On ouvre ensuite le fichier en lecture et on lit son contenu dans le 
+tableau idoine vu précédemment. Dans le cas ou le fichier de log contenait moins
+de \texttt{MAX\_VALUES}, il faut calculer l'index de la case où la prochaine 
+donnée doit être insérée. Le code correspondant est le suivant : \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+  	//Get values from files, if there are any
+	if(stat(filenames[0],&st)==0){
+		int fd;
+		if((fd=open(filenames[0],O_RDONLY))==-1){
+			perror("open templogfile (read)");
+			exit(EXIT_FAILURE);
+		}
+
+		if(read(fd,tempvalues, st.st_size)!=st.st_size){
+			perror("read templogfile");
+			exit(EXIT_FAILURE);
+		}
+
+		temp_index=(st.st_size/sizeof(MeteoData))%MAX_VALUES;
+	}
+\end{lstlisting}
+\end{DDbox}
+
+Il faut ensuite ouvrir chaque fichier de log en écriture, et le créer dans le 
+cas ou il n'existerai pas. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Open temperature logfile
+	if((templog=open(filenames[0], O_WRONLY | O_CREAT))==-1){
+		perror("open (templogfile)");
+		exit(EXIT_FAILURE);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+Le programme rentre alors dans une boucle infinie dans laquelle il va rester
+tant qu'il n'a pas reçu de signal indiquant qu'il faut se terminer. Dans cette
+boucle, on verifie si une donnée a été receptionné par le nRF24l01. Si c'est le
+cas, on la lit. On prend le mutex avant l'appel à la fonction \texttt{available}
+et on le relache après l'appel à \texttt{read} pour s'assurer qu'on est bien le
+seul à utiliser le capteur. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	while(1){
+		//if there are bytes to be read
+		pthread_mutex_lock(&radio_mutex);
+		if(radio.available()){
+			//Get data from arduino
+			radio.read(&req, sizeof(Request));
+			pthread_mutex_unlock(&radio_mutex);
+\end{lstlisting}
+\end{DDbox}
+
+Il faut ensuite remplir la structure qui va être écrite dans le fichier de log
+(\texttt{MeteoData}). On récupere la date de récéption de la mesure grâce à la
+fonction \texttt{gettimeofday}. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        //Fill the fields of MeteoData
+	d.data=req.data;
+	gettimeofday(&(d.time),NULL);
+\end{lstlisting}
+\end{DDbox}
+
+On utilise le champs \texttt{type} de la structure récéptionnée pour savoir dans
+quel tableau il faut insérer la valeur. On l'écrit ensuite dans le bon pipe 
+afin qu'elle soit lue par le serveur. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+        //Write in the right array
+        switch(req.type){
+                case TEMP:
+                tempvalues[temp_index]=d;
+                temp_index=(temp_index+1)%MAX_VALUES;
+          
+                //Send to server
+                if(write(fdtemp, &(d.data), sizeof(int16_t))!=sizeof(int16_t)){
+                        perror("temppipe");
+                        exit(EXIT_FAILURE);
+                }
+                break;
+\end{lstlisting}
+\end{DDbox}
+
+Dans le cas où aucune donnée n'est disponible, on relache le mutex que l'on 
+avait pris auparavant, et on s'endort pendant 100ms. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	}else{
+		pthread_mutex_unlock(&radio_mutex);
+		usleep(100000);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+\subsubsection{Le thread principal}
+
+Le thread principal éxecute aussi une boucle infinie dans laquelle il attend
+qu'une écriture ait lieu sur un des descripteurs de fichier correspondant aux
+tubes écrit par le serveur. Pour réaliser cette opération, on utilise la
+fonction \texttt{select} qui permet d'écouter sur plusieurs descripteurs en même
+temps. L'appel à cette fonction est bloquant tant qu'aucun événement ne s'est
+produit sur les descripteur que l'on examine. Afin d'indiquer à la fonction
+\texttt{select} les descripteurs que l'on veut écouter, on doit utiliser une
+variable de type \texttt{fd\_set} qui représente un ensemble de descripteurs. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Main loop
+	while(1){
+		//Initialize file descriptor set
+		FD_ZERO(&active_fd);
+		FD_SET(fdspeed, &active_fd);
+		FD_SET(fdturn, &active_fd);
+
+		if (select(fdmax, &active_fd, NULL, NULL, NULL) < 0){
+			perror ("select");
+			exit (EXIT_FAILURE);
+	        }
+\end{lstlisting}
+\end{DDbox}
+
+Si on sort de la fonction \texttt{select}, cela veut dire qu'un des
+descripteurs de l'ensemble passé en paramètre contient une donnée à lire.
+La fonction modifie l'ensemble pour y indiquer les descripteurs sur lesquels il
+y a eu un evenement. A la sortie de la fonction, on doit donc vérifier pour 
+chaque descripteur si un evenement s'est produit. Si c'est le cas, on lit la 
+valeur présente dans le tube. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//If there are data in fdturn or fdspeed
+	if (FD_ISSET (fdturn, &active_fd)){
+		if (read(fdturn, &turn, sizeof(int16_t)) < 0){
+			perror("read");
+			exit(EXIT_FAILURE);
+		}
+		printf("New value for turn : %d\n", turn);
+	}
+
+	if (FD_ISSET (fdspeed, &active_fd)){
+		if (read(fdspeed, &speed, sizeof(int16_t)) < 0){
+			perror("read");
+			exit(EXIT_FAILURE);
+		}
+		printf("New value for speed : %d\n", speed);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+On doit ensuite envoyer les valeurs de \texttt{speed} et \texttt{turn} à
+l'arduino. On doit donc utiliser le nRF24l01, c'est pourquoi on est obligé de
+prendre le mutex. On doit faire un appel à \texttt{stopListening()} car d'après
+la documentation, on ne doit pas faire un appel à \texttt{write()} si on n'a pas
+d'abord appelé cette fonction. \\
+ 
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Sends the speed and turn data
+	pthread_mutex_lock(&radio_mutex);
+
+	radio.stopListening();
+
+	c.speed=speed;
+	c.turn=turn;
+	radio.write(&c, sizeof(Command));
+
+	radio.startListening();
+
+	pthread_mutex_unlock(&radio_mutex);
+\end{lstlisting}
+\end{DDbox}
+
+\subsubsection{La terminaison du programme}
+
+Le programme se termine quand il reçoit un signal \texttt{SIGINT}. C'est dans
+la fonction \texttt{handler} que toute la magie réside. 
+
+On doit dans un premier temps écrire les valeurs des capteurs météo contenues 
+dans les tableaux dans les fichiers idoines. Il faut bien entendu que les 
+valeurs écrites dans le fichier soient dans l'ordre chronologique. Pour cela,
+on utilise la valeur de l'index qui nous servait à savoir ou on pouvait écrire
+la prochaine donnée. En effet, on peut aussi penser à l'index comme l'indice de 
+la case la plus ancienne. Il faut donc écrire les valeurs du tableau en 
+commencant par cette case. On écrit donc les cases d'indices compris entre 
+l'index et la fin du tableau. On écrit ensuite les valeurs allant du début
+du tableau jusqu'a l'index (non inclus). Si le tableau n'était pas plein (c'est
+à dire si le champs \texttt{time} de la structure présente à l'index d'écriture
+est égal à 0), on écrit directement les valeurs de 0 à l'index car elles sont 
+déjà dans le bon ordre. \\
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	//Write datas in files
+	if(tempvalues[temp_index].time.tv_sec==0){
+		if(write(templog, tempvalues, temp_index*sizeof(MeteoData))!=(sizeof(MeteoData)*temp_index)){
+			perror("Write templogfile");
+			exit(EXIT_FAILURE);
+		}
+	}else{
+		if(write(templog,
+			 tempvalues+temp_index, 
+			 (MAX_VALUES-temp_index)*sizeof(MeteoData))
+		   !=(sizeof(MeteoData)*(MAX_VALUES-temp_index))){
+			perror("Write templogfile");
+			exit(EXIT_FAILURE);
+		}
+		if(write(templog, tempvalues, temp_index*sizeof(MeteoData))!=(sizeof(MeteoData)*temp_index)){
+			perror("Write templogfile");
+			exit(EXIT_FAILURE);
+		}
+	}
+\end{lstlisting}
+\end{DDbox}
+
+On ferme ensuite les fichiers et on supprime les tubes nommés.
+
+\begin{DDbox}{\linewidth}
+\begin{lstlisting}
+	if (close(fdlight) == -1) {
+		perror("close fdlight");
+		exit(EXIT_FAILURE);
+	}
+
+	//Unlink fifo
+	if (unlink(LIGHT_PIPE) == -1) {
+		perror("unlink lightpipe");
+		exit(EXIT_FAILURE);
+	}
+\end{lstlisting}
+\end{DDbox}
+
+\section{Problèmes rencontrés}
+
+L'un des problèmes rencontrés était que le serveur ne pouvait pas écrire
+dans les tubes nommés prévus à cet effet. Cela était dû au fait que les 
+utilisateurs autre que le créateur du fichier n'avaient pas les droits
+d'écriture sur les tubes. En effet, lors de la création d'un fichier,
+les droits par défaut sont au mieux ceux de l'umask. Il faut donc faire un chmod
+pour donner les droits d'écritures au serveur.
+
+Un autre problème fut le choix de la bibliothèque pour le nRF24l01. En effet,
+nous avions d'abord essayé la bibliothèque présente à l'adresse https://github.com/stanleyseow/RF24, 
+sans succès. Nous avons ensuite trouvé la bonne bibliothèque (voir plus bas pour le lien).
+
+\section{Liens utilisés}
+
+Voici une liste des liens utilisés pour la création du daemon : 
+\begin{itemize}
+\item \texttt{https://github.com/tmrh20/RF24} : Dépot git contenant la 
+  bibliothèque permettant de contrôler le nRF24l01. 
+\item \texttt{http://tmrh20.github.io/RF24/classRF24.html} : Documentation des
+  fonctions de la bibliothèque nRF24l01 utilisée.
+\item \texttt{man} : Afin d'écrire le daemon, nous avons consulté les pages 
+  \texttt{man} de la plupart des fonctions que nous utilisons (\texttt{mkfifo, open,
+    pthread\_create, ...}).
+\end{itemize}
