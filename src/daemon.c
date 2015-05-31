@@ -88,22 +88,22 @@ void handler(int sig) {
 
 	//Unlink fifo
 	if (unlink(LIGHT_PIPE) == -1) {
-		perror("close lightpipe");
+		perror("unlink lightpipe");
 		exit(EXIT_FAILURE);
 	}
 
 	if (unlink(SPEED_PIPE) == -1) {
-		perror("close speedpipe");
+		perror("unlink speedpipe");
 		exit(EXIT_FAILURE);
 	}
 
 	if (unlink(TURN_PIPE) == -1) {
-		perror("close turnpipe");
+		perror("unlink turnpipe");
 		exit(EXIT_FAILURE);
 	}
 
 	if (unlink(TEMP_PIPE) == -1) {
-		perror("close temppipe");
+		perror("unlink temppipe");
 		exit(EXIT_FAILURE);
 	}
 
@@ -181,7 +181,7 @@ void * logthread(void * args){
 			d.data=(int16_t)req.data;
 			gettimeofday(&(d.time),NULL);
 
-			//Write in the right file
+			//Write in the right array
 			switch(req.type){
 			case TEMP:
 				tempvalues[temp_index]=d;
