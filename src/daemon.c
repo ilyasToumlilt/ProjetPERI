@@ -263,8 +263,8 @@ int main (int argc, char ** argv){
 	}
 
 	if(chmod(TURN_PIPE, 0766)==-1){
-	  perror("chmod (turnpipe)");
-	  exit(EXIT_FAILURE);
+		perror("chmod (turnpipe)");
+		exit(EXIT_FAILURE);
 	}
 
 	if((fdturn=open(TURN_PIPE, O_RDWR | O_TRUNC))==-1){
@@ -342,6 +342,7 @@ int main (int argc, char ** argv){
 		pthread_mutex_lock(&radio_mutex);
 
 		radio.stopListening();
+
 		c.speed=speed;
 		c.turn=turn;
 		radio.write(&c, sizeof(Command));
