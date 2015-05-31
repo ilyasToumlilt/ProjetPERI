@@ -21,10 +21,6 @@ void handler(int sig) {
 			exit(EXIT_FAILURE);
 		}
 	}else{
-		if(write(templog, tempvalues, temp_index*sizeof(MeteoData))!=(sizeof(MeteoData)*temp_index)){
-			perror("Write templogfile");
-			exit(EXIT_FAILURE);
-		}
 		if(write(templog,
 			 tempvalues+temp_index, 
 			 (MAX_VALUES-temp_index)*sizeof(MeteoData))
@@ -32,7 +28,10 @@ void handler(int sig) {
 			perror("Write templogfile");
 			exit(EXIT_FAILURE);
 		}
-
+		if(write(templog, tempvalues, temp_index*sizeof(MeteoData))!=(sizeof(MeteoData)*temp_index)){
+			perror("Write templogfile");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	//Write datas in files
@@ -42,10 +41,6 @@ void handler(int sig) {
 			exit(EXIT_FAILURE);
 		}
 	}else{
-		if(write(lightlog, lightvalues, light_index*sizeof(MeteoData))!=(sizeof(MeteoData)*light_index)){
-			perror("Write lightlogfile");
-			exit(EXIT_FAILURE);
-		}
 		if(write(lightlog,
 			 lightvalues+light_index, 
 			 (MAX_VALUES-light_index)*sizeof(MeteoData))
@@ -53,7 +48,10 @@ void handler(int sig) {
 			perror("Write lightlogfile");
 			exit(EXIT_FAILURE);
 		}
-
+		if(write(lightlog, lightvalues, light_index*sizeof(MeteoData))!=(sizeof(MeteoData)*light_index)){
+			perror("Write lightlogfile");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	printf("OK !\n");
