@@ -116,7 +116,6 @@ void * logthread(void * args){
 	MeteoData d;
 	Request req;
 	sigset_t mask;
-	int16_t l=0,t=0;
 	struct stat st;
 
 	//Set right mask
@@ -178,7 +177,7 @@ void * logthread(void * args){
 			       req.type==TEMP ? "TEMP" : "LIGHT", req.data);
 
 			//Fill the fields of MeteoData
-			d.data=(int16_t)req.data;
+			d.data=req.data;
 			gettimeofday(&(d.time),NULL);
 
 			//Write in the right array
@@ -222,7 +221,7 @@ int main (int argc, char ** argv){
 	pthread_t tid;
 	fd_set active_fd;
 	int fdmax;
-	int16_t speed = 50, turn = 50;
+	uint16_t speed = 50, turn = 50;
 	sigset_t mask;
 	Command c;
 
